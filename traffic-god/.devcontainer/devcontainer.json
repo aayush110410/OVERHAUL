@@ -1,0 +1,24 @@
+{
+  "name": "traffic-god",
+  "image": "mcr.microsoft.com/vscode/devcontainers/python:3.10",
+  "workspaceFolder": "/workspaces/traffic-god",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
+        "eamodio.gitlens",
+        "github.copilot"
+      ]
+    }
+  },
+  "remoteEnv": {
+    "PYTHONPATH": "/workspaces/traffic-god/src"
+  }
+}

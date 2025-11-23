@@ -1,0 +1,30 @@
+{
+  "samples_requested": 3200,
+  "seed": 314,
+  "models": {
+    "traffic_tt_model.pkl": {
+      "r2": 0.9993023487273273,
+      "mae": 0.2765808671025517,
+      "n_samples": 3200,
+      "output_file": "traffic_tt_model.pkl"
+    },
+    "traffic_vkt_model.pkl": {
+      "r2": 0.99955045306303,
+      "mae": 18.924469437849865,
+      "n_samples": 3200,
+      "output_file": "traffic_vkt_model.pkl"
+    },
+    "pollution_model.pkl": {
+      "r2": 0.9997737434113811,
+      "mae": 0.15343554001821244,
+      "n_samples": 3200,
+      "output_file": "pollution_model.pkl"
+    },
+    "ldra_go_meta_model.pkl": {
+      "r2": 0.9990246737637659,
+      "mae": 0.030201024709034165,
+      "n_samples": 12800,
+      "output_file": "ldra_go_meta_model.pkl"
+    }
+  }
+}

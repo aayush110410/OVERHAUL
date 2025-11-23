@@ -1,0 +1,58 @@
+# Global configuration for the Sector-78 -> Vasundhara multi-agent stack.
+# Update API keys and bounding boxes before production deployments.
+
+llm:
+  provider: "mock"          # options: mock, openai, gemini, local
+  model: "gpt-4o-mini"      # placeholder; override via env vars for sensitive values
+  temperature: 0.2
+
+region:
+  name: "Sector-78 to Vasundhara"
+  bbox:
+    min_lon: 77.30
+    min_lat: 28.56
+    max_lon: 77.34
+    max_lat: 28.61
+  osm_extract_url: "https://overpass-api.nextzen.org/api/interpreter"  # TODO: confirm endpoint
+
+simulation:
+  sumo_home: "${SUMO_HOME}"  # ensure SUMO is installed and env var exported
+  step_length: 0.5
+  duration_seconds: 600
+  random_seed: 314
+  driver_profiles:
+    aggressive_lane_change: 0.7
+    autorickshaw_stop_rate: 0.35
+  interventions:
+    scenario_a:
+      ev_share_change:
+        cars: 0.3
+        two_wheelers: 0.5
+        e_rickshaw: 0.4
+    scenario_b:
+      signal_retime: true
+      left_turn_bays: true
+    scenario_c:
+      restricted_vehicle_classes:
+        - diesel_truck
+        - heavy_commercial
+
+apis:
+  openaq: "https://api.openaq.org/v3/measurements"
+  who: "https://ghoapi.azureedge.net/api/"
+  world_bank: "https://api.worldbank.org/v2/"
+  niti_aayog: "https://www.niti.gov.in/"
+  mor_th: "https://morth.nic.in/"
+  custom_headers:
+    User-Agent: "OVERHAUL-AgenticPrototype/0.1"
+
+security:
+  require_user_consent_for_sensitive_attributes: true
+  allowed_sensitive_attributes:
+    - socio_economic_bracket
+
+storage:
+  vector_db_path: "./storage/vector_db"
+  raw_data_dir: "./storage/raw"
+  cleaned_data_dir: "./storage/cleaned"
+  reports_dir: "./storage/reports"

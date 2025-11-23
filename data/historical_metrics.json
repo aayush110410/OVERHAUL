@@ -1,0 +1,12 @@
+{
+  "city": "Noida",
+  "records": [
+    {"year": 2018, "aqi": 172, "pm25": 138, "noise_db": 74, "gdp_crore": 35500},
+    {"year": 2019, "aqi": 165, "pm25": 132, "noise_db": 73, "gdp_crore": 37250},
+    {"year": 2020, "aqi": 142, "pm25": 118, "noise_db": 69, "gdp_crore": 34810},
+    {"year": 2021, "aqi": 156, "pm25": 127, "noise_db": 71, "gdp_crore": 36120},
+    {"year": 2022, "aqi": 149, "pm25": 121, "noise_db": 70, "gdp_crore": 38940},
+    {"year": 2023, "aqi": 138, "pm25": 112, "noise_db": 68, "gdp_crore": 41400},
+    {"year": 2024, "aqi": 133, "pm25": 107, "noise_db": 66, "gdp_crore": 44120}
+  ]
+}
