@@ -1327,6 +1327,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.responses import FileResponse
+
+@app.get("/")
+async def read_index():
+    return FileResponse("index_v3.html")
+
 from fastapi import Query
 
 @app.get("/live/aqi")
