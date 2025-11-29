@@ -751,6 +751,16 @@
     .delay-3 { animation-delay: 0.3s; }
     .delay-4 { animation-delay: 0.4s; }
 
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.4; }
+        100% { opacity: 1; }
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .container {
@@ -948,7 +958,10 @@
   </div>
 
   <script>
-    const API_BASE = 'http://127.0.0.1:8000';
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8000'
+      : 'https://overhaul-api.onrender.com'; // TODO: Update this with your actual Render URL after deployment
+    console.log('[OVERHAUL] Using API base', API_BASE);
     const DEFAULT_PROMPT = 'Analyze impact of increased EV adoption on corridor traffic flow and air quality';
     
     const state = {
@@ -1479,8 +1492,18 @@ async function fetchLiveAQI() {
         const explanation = Array.isArray(data.outputs?.explanation) ? data.outputs.explanation : [];
         const deepFacts = Array.isArray(data.outputs?.deepFacts) ? data.outputs.deepFacts : [];
         const dialogue = Array.isArray(data.outputs?.multiAgentDigest) ? data.outputs.multiAgentDigest : [];
+        const logs = Array.isArray(data.outputs?.logs) ? data.outputs.logs : [];
 
-        let html = `<p style="margin-bottom:12px;"><strong>Executive summary:</strong> ${tldr}</p>`;
+        let html = '';
+        
+        if (logs.length) {
+             html += '<div style="background: rgba(0,20,40,0.8); border: 1px solid var(--neon-cyan); border-radius: 8px; padding: 15px; margin-bottom: 20px; font-family: \'Space Mono\', monospace; font-size: 0.85em; color: var(--text-secondary); box-shadow: 0 0 15px rgba(0,255,255,0.1);">';
+             html += '<div style="margin-bottom:8px; font-weight:bold; color:var(--neon-cyan); display:flex; align-items:center; gap:8px;"><span style="animation: pulse 2s infinite;">●</span> SYSTEM TRACE</div>';
+             html += logs.map((l, i) => `<div style="margin-bottom:4px; opacity:0; animation: fadeIn 0.3s forwards; animation-delay: ${i * 0.1}s;">> ${l}</div>`).join('');
+             html += '</div>';
+        }
+
+        html += `<p style="margin-bottom:12px;"><strong>Executive summary:</strong> ${tldr}</p>`;
 
         if (narrative.length) {
           html += '<p style="margin:10px 0 4px;"><strong>Key storylines:</strong></p><ul style="margin-left:18px;">' +

@@ -18,8 +18,8 @@ pytest>=8.3.1
 pytest-asyncio>=0.23.7
 sumolib>=1.19.0
 traci>=1.19.0
-torch
-opencv-python
+# torch
+opencv-python-headless
 ultralytics
 norfair
 stable-baselines3
