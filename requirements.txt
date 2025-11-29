@@ -22,7 +22,7 @@ torch
 opencv-python
 ultralytics
 norfair
-stable-baselines3[extra]
+stable-baselines3
 gym==0.26.2
 tensorboard
 structlog
