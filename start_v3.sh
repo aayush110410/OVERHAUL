@@ -6,18 +6,22 @@ echo "========================================"
 echo ""
 
 # Check if virtual environment exists
-if [ ! -d "myvenv" ]; then
+if [ ! -d ".venv" ]; then
     echo "ERROR: Virtual environment not found!"
-    echo "Please create venv first: python -m venv myvenv"
+    echo "Please create venv first: python -m venv .venv"
     exit 1
 fi
 
 # Activate virtual environment
-source myvenv/bin/activate
+source .venv/bin/activate
 
 echo "[1/3] Starting FastAPI backend on port 8000..."
 uvicorn app:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
+
+echo "[1.5/3] Starting AQI Prediction Service on port 8081..."
+uvicorn predict_api:app --reload --host 0.0.0.0 --port 8081 &
+PREDICT_PID=$!
 
 sleep 3
 
@@ -41,16 +45,18 @@ echo "========================================"
 echo "OVERHAUL v3 is now running!"
 echo "========================================"
 echo "Backend API: http://localhost:8000"
+echo "AQI Predictor: http://localhost:8081"
 echo "Frontend UI: http://localhost:8080/index_v3.html"
 echo ""
 echo "Backend PID: $BACKEND_PID"
+echo "Predictor PID: $PREDICT_PID"
 echo "Frontend PID: $FRONTEND_PID"
 echo ""
-echo "Press Ctrl+C to stop both servers"
+echo "Press Ctrl+C to stop all servers"
 echo "========================================"
 
 # Trap Ctrl+C and kill both processes
-trap "kill $BACKEND_PID $FRONTEND_PID; exit" INT
+trap "kill $BACKEND_PID $PREDICT_PID $FRONTEND_PID; exit" INT
 
 # Wait for both processes
 wait
