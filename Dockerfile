@@ -1,19 +1,29 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Use Ubuntu 22.04 as base for better PPA support (SUMO is best supported here)
+FROM ubuntu:22.04
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    SUMO_HOME=/usr/share/sumo
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SUMO_HOME=/usr/share/sumo
 
-# Install system dependencies (including SUMO and git)
+# Install system dependencies
+# 1. Add SUMO and Python PPAs
+# 2. Install SUMO, Python 3.11, and build tools
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    curl \
+    git \
+    && add-apt-repository ppa:sumo/stable \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y \
     sumo \
     sumo-tools \
     sumo-doc \
-    git \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
     build-essential \
-    libgl1-mesa-glx \
+    libgl1 \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set work directory
@@ -23,16 +33,16 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-# Note: We use the CPU-only version of PyTorch to save space and RAM
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt
+# Use python3.11 explicitly
+RUN python3.11 -m pip install --no-cache-dir --upgrade pip && \
+    python3.11 -m pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    python3.11 -m pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
 COPY . .
 
-# Expose the port the app runs on
+# Expose the port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run with python3.11 module
+CMD ["python3.11", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
