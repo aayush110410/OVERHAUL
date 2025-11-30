@@ -485,7 +485,7 @@ function Marquee({ children, speed = 20, reverse = false }) {
 // ============================================
 // MAGNETIC BUTTON
 // ============================================
-function MagneticButton({ children, className, href, to, onClick }) {
+function MagneticButton({ children, className, href, to, onClick, external }) {
   const ref = useRef(null)
   const [position, setPosition] = useState({ x: 0, y: 0 })
 
@@ -515,6 +515,28 @@ function MagneticButton({ children, className, href, to, onClick }) {
           {children}
         </Link>
       </motion.div>
+    )
+  }
+
+  // External link with target blank
+  if (href && external) {
+    return (
+      <motion.a
+        ref={ref}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        onClick={onClick}
+        onMouseMove={handleMouse}
+        onMouseLeave={handleLeave}
+        animate={{ x: position.x, y: position.y }}
+        transition={{ type: 'spring', stiffness: 100, damping: 20, mass: 0.8 }}
+        whileTap={{ scale: 0.95 }}
+        style={{ willChange: 'transform' }}
+      >
+        {children}
+      </motion.a>
     )
   }
 
@@ -651,10 +673,10 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
             >
-              <MagneticButton className="btn-brutal" to="/demo">
+              <MagneticButton className="btn-brutal" href="https://overhaul-le1a.onrender.com" external>
                 LAUNCH SIMULATOR
               </MagneticButton>
-              <MagneticButton className="btn-outline" to="/demo">
+              <MagneticButton className="btn-outline" href="https://overhaul-le1a.onrender.com" external>
                 <span className="btn-icon">▶</span>
                 WATCH DEMO
               </MagneticButton>
