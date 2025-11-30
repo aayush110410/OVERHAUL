@@ -1327,13 +1327,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from fastapi.responses import FileResponse
+from fastapi import Query
 
 @app.get("/")
-async def read_index():
-    return FileResponse("index_v3.html")
-
-from fastapi import Query
+async def root():
+    """API root - Render backend is running"""
+    return {"status": "ok", "message": "OVERHAUL API Backend", "docs": "/docs"}
 
 @app.get("/live/aqi")
 async def live_aqi(
