@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
+import Demo from './Demo.jsx'
 import Contact from './Contact.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -10,6 +11,7 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/demo" element={<Demo />} />
         <Route path="/contact" element={<Contact />} />
       </Routes>
     </BrowserRouter>

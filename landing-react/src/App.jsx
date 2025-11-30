@@ -673,10 +673,10 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
             >
-              <MagneticButton className="btn-brutal" href="https://overhaul-le1a.onrender.com" external>
+              <MagneticButton className="btn-brutal" to="/demo">
                 LAUNCH SIMULATOR
               </MagneticButton>
-              <MagneticButton className="btn-outline" href="https://overhaul-le1a.onrender.com" external>
+              <MagneticButton className="btn-outline" to="/demo">
                 <span className="btn-icon">▶</span>
                 WATCH DEMO
               </MagneticButton>
