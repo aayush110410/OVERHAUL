@@ -655,7 +655,7 @@ function App() {
               transition={{ duration: 0.6 }}
             >
               <span className="tag-dot" />
-              TRAFFIC SIMULATION PLATFORM
+              EARTH SIMULATION PLATFORM
             </motion.div>
             
             <div className="hero-title-container">
