@@ -217,6 +217,15 @@
   opacity: 0.6;
 }
 
+.nav-link-special {
+  color: var(--lime) !important;
+  font-weight: 600;
+}
+
+.nav-link-special:hover {
+  opacity: 0.8 !important;
+}
+
 .nav-cta {
   font-family: 'Space Mono', monospace;
   font-size: 12px;

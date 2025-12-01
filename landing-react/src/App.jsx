@@ -626,8 +626,15 @@ function App() {
               <a href="#features">FEATURES</a>
               <a href="#journey">ROADMAP</a>
               <Link to="/contact">CONTACT</Link>
+              <Link to="/support" className="nav-link-special">SUPPORT US</Link>
             </div>
-            <MagneticButton className="nav-cta" to="/support">
+            <MagneticButton 
+              className="nav-cta" 
+              onClick={() => {
+                document.getElementById('cta-section')?.scrollIntoView({ behavior: 'smooth' })
+                setTimeout(() => setShowJoinForm(true), 500)
+              }}
+            >
               JOIN US
             </MagneticButton>
           </nav>
@@ -1242,7 +1249,7 @@ function App() {
         {/* ============================================ */}
         {/* CTA SECTION */}
         {/* ============================================ */}
-        <section className="cta" id="contact">
+        <section className="cta" id="cta-section">
           <motion.div 
             className="cta-content"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -1291,9 +1298,11 @@ function App() {
                   {showJoinForm ? 'CLOSE ×' : 'JOIN US →'}
                 </MagneticButton>
               </div>
-              <MagneticButton className="btn-outline">
-                SUPPORT US
-              </MagneticButton>
+              <Link to="/support">
+                <MagneticButton className="btn-outline">
+                  SUPPORT US
+                </MagneticButton>
+              </Link>
             </motion.div>
             
             {/* Join Form Dropdown */}
