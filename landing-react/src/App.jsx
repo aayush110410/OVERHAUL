@@ -631,8 +631,8 @@ function App() {
             <MagneticButton 
               className="nav-cta" 
               onClick={() => {
-                document.getElementById('cta-section')?.scrollIntoView({ behavior: 'smooth' })
-                setTimeout(() => setShowJoinForm(true), 500)
+                document.getElementById('join-us-buttons')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                setTimeout(() => setShowJoinForm(true), 800)
               }}
             >
               JOIN US
@@ -1287,6 +1287,7 @@ function App() {
             Overhaul today and transform your vision into reality.
             </motion.p>
             <motion.div 
+              id="join-us-buttons"
               className="cta-buttons"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
