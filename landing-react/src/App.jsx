@@ -628,8 +628,8 @@ function App() {
               <a href="#about">ABOUT</a>
               <a href="#features">FEATURES</a>
               <a href="#journey">ROADMAP</a>
-              <Link to="/contact">CONTACT</Link>
-              <Link to="/support" className="nav-link-special">SUPPORT US</Link>
+              <Link to="/contact" state={{ skipLoader: false }}>CONTACT</Link>
+              <Link to="/support" state={{ skipLoader: false }} className="nav-link-special">SUPPORT US</Link>
             </div>
             <MagneticButton 
               className="nav-cta" 
@@ -1307,7 +1307,7 @@ function App() {
                   {showJoinForm ? 'CLOSE ×' : 'JOIN US →'}
                 </MagneticButton>
               </div>
-              <Link to="/support">
+              <Link to="/support" state={{ skipLoader: false }}>
                 <MagneticButton className="btn-outline btn-large">
                   SUPPORT US
                 </MagneticButton>
@@ -1333,7 +1333,7 @@ function App() {
               <div className="footer-col">
                 <h4>PLATFORM</h4>
                 <a href="#features">Features</a>
-                <Link to="/support">Join The Revolution</Link>
+                <Link to="/support" state={{ skipLoader: false }}>Join The Revolution</Link>
                 <a href="#journey">Roadmap</a>
                 <a href="#">Changelog</a>
               </div>
@@ -1342,14 +1342,14 @@ function App() {
                 <a href="#about">About</a>
                 <a href="#">Careers</a>
                 <a href="#">Press</a>
-                <Link to="/contact">Contact</Link>
+                <Link to="/contact" state={{ skipLoader: false }}>Contact</Link>
               </div>
               <div className="footer-col">
                 <h4>LEGAL</h4>
-                <Link to="/privacy">Privacy Policy</Link>
-                <Link to="/terms">Terms & Conditions</Link>
-                <Link to="/refunds">Cancellation & Refunds</Link>
-                <Link to="/shipping">Shipping</Link>
+                <Link to="/privacy" state={{ skipLoader: false }}>Privacy Policy</Link>
+                <Link to="/terms" state={{ skipLoader: false }}>Terms & Conditions</Link>
+                <Link to="/refunds" state={{ skipLoader: false }}>Cancellation & Refunds</Link>
+                <Link to="/shipping" state={{ skipLoader: false }}>Shipping</Link>
               </div>
               <div className="footer-col">
                 <h4>FOLLOW</h4>
@@ -1364,8 +1364,8 @@ function App() {
           <div className="footer-bottom">
             <span>© 2025 OVERHAUL. ALL RIGHTS RESERVED.</span>
             <div className="footer-legal">
-              <Link to="/privacy">Privacy Policy</Link>
-              <Link to="/terms">Terms of Service</Link>
+              <Link to="/privacy" state={{ skipLoader: false }}>Privacy Policy</Link>
+              <Link to="/terms" state={{ skipLoader: false }}>Terms of Service</Link>
             </div>
           </div>
         </footer>
