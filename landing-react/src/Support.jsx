@@ -287,7 +287,7 @@ function Support() {
     }
 
     const options = {
-      key: 'rzp_live_fquBPILlNv57Vz', // Replace with your Razorpay Key ID
+      key: 'rzp_test_RmHYwuBZOYY3QD',
       amount: amount * 100, // Amount in paise
       currency: 'INR',
       name: 'OVERHAUL',
