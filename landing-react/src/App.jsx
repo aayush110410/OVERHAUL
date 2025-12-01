@@ -1299,7 +1299,7 @@ function App() {
                 </MagneticButton>
               </div>
               <Link to="/support">
-                <MagneticButton className="btn-outline">
+                <MagneticButton className="btn-outline btn-large">
                   SUPPORT US
                 </MagneticButton>
               </Link>
