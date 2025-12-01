@@ -158,52 +158,64 @@ function ExitLoader({ onComplete }) {
 }
 
 // ============================================
-// SUPPORT TIERS
+// FLOATING PARTICLES
 // ============================================
-const supportTiers = [
-  {
-    id: 'pioneer',
-    name: 'PIONEER',
-    amount: 499,
-    amountDisplay: '₹499',
-    description: 'Be among the first to shape the future',
-    perks: [
-      'Early access to new features',
-      'Name in credits',
-      'Exclusive Discord role'
-    ],
-    popular: false
-  },
-  {
-    id: 'visionary',
-    name: 'VISIONARY',
-    amount: 1999,
-    amountDisplay: '₹1,999',
-    description: 'For those who see beyond tomorrow',
-    perks: [
-      'Everything in Pioneer',
-      'Priority feature requests',
-      'Monthly insider updates',
-      'Beta tester access'
-    ],
-    popular: true
-  },
-  {
-    id: 'revolutionary',
-    name: 'REVOLUTIONARY',
-    amount: 4999,
-    amountDisplay: '₹4,999',
-    description: 'Lead the charge into the future',
-    perks: [
-      'Everything in Visionary',
-      '1-on-1 call with founders',
-      'Custom feature consideration',
-      'Lifetime early access',
-      'Exclusive merchandise'
-    ],
-    popular: false
-  }
-]
+function FloatingParticles() {
+  const particles = Array.from({ length: 30 }, (_, i) => ({
+    id: i,
+    size: Math.random() * 4 + 2,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    duration: Math.random() * 20 + 15,
+    delay: Math.random() * 5
+  }))
+
+  return (
+    <div className="floating-particles">
+      {particles.map(p => (
+        <motion.div
+          key={p.id}
+          className="particle"
+          style={{
+            width: p.size,
+            height: p.size,
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+          }}
+          animate={{
+            y: [0, -30, 0],
+            x: [0, Math.random() * 20 - 10, 0],
+            opacity: [0.2, 0.6, 0.2],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ============================================
+// QUICK AMOUNT BUTTON
+// ============================================
+function QuickAmountBtn({ amount, selected, onClick }) {
+  return (
+    <motion.button
+      className={`quick-amount-btn ${selected ? 'selected' : ''}`}
+      onClick={() => onClick(amount)}
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+    >
+      ₹{amount.toLocaleString()}
+    </motion.button>
+  )
+}
 
 // ============================================
 // SUPPORT PAGE
@@ -212,18 +224,22 @@ function Support() {
   const [loading, setLoading] = useState(true)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
-  const [selectedTier, setSelectedTier] = useState(null)
-  const [customAmount, setCustomAmount] = useState('')
+  const [amount, setAmount] = useState('')
   const [paymentStatus, setPaymentStatus] = useState(null)
+  const [isFocused, setIsFocused] = useState(false)
   const navigate = useNavigate()
   
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
+  const inputRef = useRef(null)
+
+  const quickAmounts = [100, 500, 1000, 2500, 5000]
+  const minAmount = 10
 
   // Set page title
   useEffect(() => {
-    document.title = 'OVERHAUL | Join The Revolution'
+    document.title = 'OVERHAUL | Support Us'
   }, [])
 
   // Load Razorpay script
@@ -233,7 +249,9 @@ function Support() {
     script.async = true
     document.body.appendChild(script)
     return () => {
-      document.body.removeChild(script)
+      if (document.body.contains(script)) {
+        document.body.removeChild(script)
+      }
     }
   }, [])
 
@@ -271,7 +289,7 @@ function Support() {
 
   useEffect(() => {
     const handleHover = () => {
-      const hoverable = document.querySelectorAll('a, button, .magnetic-btn, .support-tier')
+      const hoverable = document.querySelectorAll('a, button, .magnetic-btn, .quick-amount-btn, input')
       hoverable.forEach(el => {
         el.addEventListener('mouseenter', () => setHovering(true))
         el.addEventListener('mouseleave', () => setHovering(false))
@@ -280,7 +298,13 @@ function Support() {
     if (!loading && !exiting) handleHover()
   }, [loading, exiting])
 
-  const handlePayment = (amount, tierName = 'Custom') => {
+  const handlePayment = () => {
+    const numAmount = parseInt(amount)
+    
+    if (!numAmount || numAmount < minAmount) {
+      return
+    }
+
     if (!window.Razorpay) {
       alert('Payment system is loading. Please try again.')
       return
@@ -288,15 +312,14 @@ function Support() {
 
     const options = {
       key: 'rzp_test_RmHYwuBZOYY3QD',
-      amount: amount * 100, // Amount in paise
+      amount: numAmount * 100,
       currency: 'INR',
       name: 'OVERHAUL',
-      description: `${tierName} - Join The Revolution`,
+      description: 'Support the Future of AI & Simulations',
       image: '/favicon.png',
       handler: function (response) {
         setPaymentStatus('success')
-        console.log('Payment successful:', response)
-        // You can send this to your backend for verification
+        setAmount('')
       },
       prefill: {
         name: '',
@@ -304,8 +327,7 @@ function Support() {
         contact: ''
       },
       notes: {
-        tier: tierName,
-        purpose: 'Support OVERHAUL'
+        purpose: 'Support OVERHAUL Development'
       },
       theme: {
         color: '#CCFF00'
@@ -321,23 +343,24 @@ function Support() {
     
     rzp.on('payment.failed', function (response) {
       setPaymentStatus('failed')
-      console.error('Payment failed:', response.error)
     })
 
     rzp.open()
   }
 
-  const handleTierSelect = (tier) => {
-    setSelectedTier(tier.id)
-    handlePayment(tier.amount, tier.name)
-  }
-
-  const handleCustomPayment = () => {
-    const amount = parseInt(customAmount)
-    if (amount && amount >= 100) {
-      handlePayment(amount, 'Custom Contribution')
+  const handleQuickAmount = (amt) => {
+    setAmount(amt.toString())
+    if (inputRef.current) {
+      inputRef.current.focus()
     }
   }
+
+  const handleAmountChange = (e) => {
+    const val = e.target.value.replace(/[^0-9]/g, '')
+    setAmount(val)
+  }
+
+  const isValidAmount = amount && parseInt(amount) >= minAmount
 
   return (
     <>
@@ -346,24 +369,6 @@ function Support() {
         ref={cursorRef}
         className={`cursor ${hovering ? 'hovering' : ''}`}
       />
-
-      {/* Moving Background */}
-      <div className="moving-bg">
-        <svg className="moving-bg-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">
-          <motion.path
-            d="M0,500 Q250,400 500,500 T1000,500"
-            stroke="rgba(204, 255, 0, 0.1)"
-            strokeWidth="2"
-            fill="none"
-            animate={{ d: [
-              "M0,500 Q250,400 500,500 T1000,500",
-              "M0,500 Q250,600 500,500 T1000,500",
-              "M0,500 Q250,400 500,500 T1000,500"
-            ]}}
-            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </svg>
-      </div>
 
       {/* Entry Loader */}
       <AnimatePresence mode="wait">
@@ -383,190 +388,265 @@ function Support() {
       <AnimatePresence>
         {!loading && !exiting && (
           <motion.div 
-            className="support-page"
+            className="support-page-new"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.5 }}
           >
+            {/* Floating Particles */}
+            <FloatingParticles />
+
+            {/* Gradient Orbs */}
+            <div className="gradient-orbs">
+              <motion.div 
+                className="gradient-orb orb-1"
+                animate={{ 
+                  x: [0, 50, 0],
+                  y: [0, -30, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div 
+                className="gradient-orb orb-2"
+                animate={{ 
+                  x: [0, -40, 0],
+                  y: [0, 40, 0],
+                  scale: [1, 1.15, 1]
+                }}
+                transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div 
+                className="gradient-orb orb-3"
+                animate={{ 
+                  x: [0, 30, 0],
+                  y: [0, 50, 0],
+                  scale: [1, 1.2, 1]
+                }}
+                transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+
             {/* Navigation */}
-            <nav className="contact-nav">
+            <motion.nav 
+              className="support-nav"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+            >
               <a href="/" onClick={handleBackHome} className="nav-logo">OVERHAUL™</a>
-              <a href="/" onClick={handleBackHome} className="back-btn">
-                ← BACK TO HOME
+              <a href="/" onClick={handleBackHome} className="back-btn-support">
+                ← BACK
               </a>
-            </nav>
+            </motion.nav>
 
             {/* Main Content */}
-            <div className="support-content">
-              {/* Header */}
+            <div className="support-main">
+              {/* Left Side - Message */}
               <motion.div 
-                className="support-header"
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.6 }}
+                className="support-message"
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3, duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
               >
-                <span className="contact-label">BE PART OF SOMETHING BIGGER</span>
-                <h1 className="support-title">
-                  JOIN THE<br/>
-                  <span className="text-lime">REVOLUTION</span>
-                </h1>
-                <p className="support-subtitle">
-                  We're building the future of urban intelligence. Your involvement accelerates 
-                  our mission to transform how cities think, breathe, and move.
-                </p>
+                <motion.span 
+                  className="support-label"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
+                >
+                  HELP US BUILD THE FUTURE
+                </motion.span>
+                
+                <motion.h1 
+                  className="support-headline"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5, duration: 0.7 }}
+                >
+                  Support the next<br/>
+                  <span className="text-gradient">age of AI</span>
+                </motion.h1>
+                
+                <motion.p 
+                  className="support-description"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6, duration: 0.6 }}
+                >
+                  We're building intelligent simulations that will transform how cities move, 
+                  how systems think, and how the world operates. Your support—no matter the 
+                  size—fuels this revolution.
+                </motion.p>
+
+                <motion.div 
+                  className="support-features"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7, duration: 0.6 }}
+                >
+                  <div className="support-feature">
+                    <span className="feature-icon">◈</span>
+                    <span>AI-Powered Urban Intelligence</span>
+                  </div>
+                  <div className="support-feature">
+                    <span className="feature-icon">◈</span>
+                    <span>Real-Time Traffic Simulations</span>
+                  </div>
+                  <div className="support-feature">
+                    <span className="feature-icon">◈</span>
+                    <span>Open Research & Development</span>
+                  </div>
+                </motion.div>
               </motion.div>
 
-              {/* Success/Error Message */}
-              <AnimatePresence>
-                {paymentStatus === 'success' && (
-                  <motion.div 
-                    className="payment-message success"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <span className="payment-icon">✓</span>
-                    <div>
-                      <h3>Welcome to the Revolution!</h3>
-                      <p>Thank you for joining us. You're now part of something extraordinary.</p>
-                    </div>
-                  </motion.div>
-                )}
-                {paymentStatus === 'failed' && (
-                  <motion.div 
-                    className="payment-message error"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <span className="payment-icon">✕</span>
-                    <div>
-                      <h3>Payment Unsuccessful</h3>
-                      <p>Something went wrong. Please try again or contact us.</p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Tiers */}
+              {/* Right Side - Payment Card */}
               <motion.div 
-                className="support-tiers"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.6 }}
+                className="support-card"
+                initial={{ opacity: 0, x: 50, rotateY: -10 }}
+                animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                transition={{ delay: 0.4, duration: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
               >
-                {supportTiers.map((tier, index) => (
-                  <motion.div 
-                    key={tier.id}
-                    className={`support-tier ${tier.popular ? 'popular' : ''}`}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + index * 0.1, duration: 0.5 }}
-                    onClick={() => handleTierSelect(tier)}
-                  >
-                    {tier.popular && <div className="tier-badge">MOST POPULAR</div>}
-                    <h3 className="tier-name">{tier.name}</h3>
-                    <div className="tier-amount">{tier.amountDisplay}</div>
-                    <p className="tier-description">{tier.description}</p>
-                    <ul className="tier-perks">
-                      {tier.perks.map((perk, i) => (
-                        <li key={i}>
-                          <span className="perk-check">✓</span>
-                          {perk}
-                        </li>
-                      ))}
-                    </ul>
-                    <button className="tier-button">
-                      JOIN AS {tier.name}
-                    </button>
-                  </motion.div>
-                ))}
-              </motion.div>
+                {/* Success Message */}
+                <AnimatePresence mode="wait">
+                  {paymentStatus === 'success' ? (
+                    <motion.div 
+                      className="success-state"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <motion.div 
+                        className="success-check"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                      >
+                        ✓
+                      </motion.div>
+                      <h3>Thank You!</h3>
+                      <p>Your support means the world to us. Together, we're building something extraordinary.</p>
+                      <motion.button 
+                        className="support-again-btn"
+                        onClick={() => setPaymentStatus(null)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Support Again
+                      </motion.button>
+                    </motion.div>
+                  ) : paymentStatus === 'failed' ? (
+                    <motion.div 
+                      className="error-state"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <div className="error-icon">✕</div>
+                      <h3>Payment Failed</h3>
+                      <p>Something went wrong. Please try again.</p>
+                      <motion.button 
+                        className="try-again-btn"
+                        onClick={() => setPaymentStatus(null)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Try Again
+                      </motion.button>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      className="payment-form"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <h2 className="card-title">Enter any amount</h2>
+                      <p className="card-subtitle">Minimum ₹10 • Every bit helps</p>
 
-              {/* Custom Amount */}
-              <motion.div 
-                className="custom-amount"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.6 }}
-              >
-                <h3>OR CHOOSE YOUR OWN AMOUNT</h3>
-                <div className="custom-input-group">
-                  <span className="currency-symbol">₹</span>
-                  <input 
-                    type="number" 
-                    placeholder="Enter amount (min ₹100)"
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
-                    min="100"
-                  />
-                  <button 
-                    className="custom-pay-btn"
-                    onClick={handleCustomPayment}
-                    disabled={!customAmount || parseInt(customAmount) < 100}
-                  >
-                    PROCEED
-                  </button>
-                </div>
-              </motion.div>
+                      {/* Amount Input */}
+                      <div className={`amount-input-wrapper ${isFocused ? 'focused' : ''} ${isValidAmount ? 'valid' : ''}`}>
+                        <span className="rupee-symbol">₹</span>
+                        <input 
+                          ref={inputRef}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          value={amount}
+                          onChange={handleAmountChange}
+                          onFocus={() => setIsFocused(true)}
+                          onBlur={() => setIsFocused(false)}
+                          className="amount-input"
+                        />
+                      </div>
 
-              {/* Trust Badges */}
-              <motion.div 
-                className="trust-section"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6, duration: 0.6 }}
-              >
-                <div className="trust-badges">
-                  <div className="trust-badge">
-                    <span className="trust-icon">🔒</span>
-                    <span>Secure Payments via Razorpay</span>
-                  </div>
-                  <div className="trust-badge">
-                    <span className="trust-icon">⚡</span>
-                    <span>Instant Confirmation</span>
-                  </div>
-                  <div className="trust-badge">
-                    <span className="trust-icon">💳</span>
-                    <span>All Cards & UPI Accepted</span>
-                  </div>
-                </div>
-              </motion.div>
+                      {/* Quick Amount Buttons */}
+                      <div className="quick-amounts">
+                        {quickAmounts.map(amt => (
+                          <QuickAmountBtn 
+                            key={amt}
+                            amount={amt}
+                            selected={amount === amt.toString()}
+                            onClick={handleQuickAmount}
+                          />
+                        ))}
+                      </div>
 
-              {/* FAQ */}
-              <motion.div 
-                className="support-faq"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7, duration: 0.6 }}
-              >
-                <h3>FREQUENTLY ASKED</h3>
-                <div className="faq-grid">
-                  <div className="faq-item">
-                    <h4>What happens after I join?</h4>
-                    <p>You'll receive an email confirmation with details about your perks and how to access exclusive features.</p>
-                  </div>
-                  <div className="faq-item">
-                    <h4>Is this a subscription?</h4>
-                    <p>No, this is a one-time contribution. You won't be charged again unless you choose to.</p>
-                  </div>
-                  <div className="faq-item">
-                    <h4>Can I get a refund?</h4>
-                    <p>Yes, we offer refunds within 7 days. See our <Link to="/refunds">refund policy</Link> for details.</p>
-                  </div>
-                  <div className="faq-item">
-                    <h4>How will my contribution be used?</h4>
-                    <p>Your contribution directly funds development, research, and infrastructure to build better urban AI.</p>
-                  </div>
-                </div>
+                      {/* Pay Button */}
+                      <motion.button 
+                        className={`pay-btn ${isValidAmount ? 'active' : ''}`}
+                        onClick={handlePayment}
+                        disabled={!isValidAmount}
+                        whileHover={isValidAmount ? { scale: 1.02, y: -2 } : {}}
+                        whileTap={isValidAmount ? { scale: 0.98 } : {}}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      >
+                        {isValidAmount ? (
+                          <>Support with ₹{parseInt(amount).toLocaleString()}</>
+                        ) : (
+                          <>Enter amount to continue</>
+                        )}
+                      </motion.button>
+
+                      {/* Security Note */}
+                      <div className="security-note">
+                        <span className="lock-icon">🔒</span>
+                        <span>Secure payment via Razorpay • UPI, Cards & More</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             </div>
 
+            {/* Bottom Quote */}
+            <motion.div 
+              className="support-quote"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9, duration: 0.6 }}
+            >
+              <p>"The future belongs to those who build it."</p>
+            </motion.div>
+
             {/* Footer */}
-            <footer className="contact-footer">
-              <span>© 2025 OVERHAUL. ALL RIGHTS RESERVED.</span>
-            </footer>
+            <motion.footer 
+              className="support-footer"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1, duration: 0.5 }}
+            >
+              <div className="footer-links">
+                <Link to="/privacy">Privacy</Link>
+                <Link to="/terms">Terms</Link>
+                <Link to="/refunds">Refunds</Link>
+              </div>
+              <span>© 2025 OVERHAUL</span>
+            </motion.footer>
           </motion.div>
         )}
       </AnimatePresence>
