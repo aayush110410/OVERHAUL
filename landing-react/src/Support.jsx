@@ -235,6 +235,7 @@ function Support() {
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
   const inputRef = useRef(null)
+  const pendingNavigation = useRef(null)
 
   const quickAmounts = [100, 500, 1000, 2500, 5000]
   const minAmount = 10
@@ -245,6 +246,23 @@ function Support() {
       sessionStorage.setItem('hasSeenSupportLoader', 'true')
     }
   }, [loading])
+
+  // Handle browser back/forward button - show exit loader
+  useEffect(() => {
+    const handlePopState = (e) => {
+      e.preventDefault()
+      window.history.pushState(null, '', window.location.pathname)
+      pendingNavigation.current = '/'
+      setExiting(true)
+    }
+
+    window.history.pushState(null, '', window.location.pathname)
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   // Set page title
   useEffect(() => {
@@ -266,11 +284,14 @@ function Support() {
 
   const handleBackHome = (e) => {
     e.preventDefault()
+    pendingNavigation.current = '/'
     setExiting(true)
   }
 
   const handleExitComplete = () => {
-    navigate('/', { state: { skipLoader: true } })
+    const destination = pendingNavigation.current || '/'
+    pendingNavigation.current = null
+    navigate(destination, { state: { skipLoader: true } })
   }
 
   // Cursor tracking

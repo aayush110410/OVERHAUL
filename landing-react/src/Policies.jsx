@@ -351,6 +351,7 @@ function PolicyPage({ type }) {
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
+  const pendingNavigation = useRef(null)
 
   const policy = policyContent[type]
   const pageTitle = type === 'privacy' ? 'Privacy Policy' 
@@ -365,6 +366,23 @@ function PolicyPage({ type }) {
     }
   }, [loading, loaderKey])
 
+  // Handle browser back/forward button - show exit loader
+  useEffect(() => {
+    const handlePopState = (e) => {
+      e.preventDefault()
+      window.history.pushState(null, '', window.location.pathname)
+      pendingNavigation.current = '/'
+      setExiting(true)
+    }
+
+    window.history.pushState(null, '', window.location.pathname)
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
   // Set page title
   useEffect(() => {
     document.title = `OVERHAUL | ${pageTitle}`
@@ -372,11 +390,14 @@ function PolicyPage({ type }) {
 
   const handleBackHome = (e) => {
     e.preventDefault()
+    pendingNavigation.current = '/'
     setExiting(true)
   }
 
   const handleExitComplete = () => {
-    navigate('/', { state: { skipLoader: true } })
+    const destination = pendingNavigation.current || '/'
+    pendingNavigation.current = null
+    navigate(destination, { state: { skipLoader: true } })
   }
 
   // Cursor tracking

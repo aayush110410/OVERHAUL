@@ -181,6 +181,7 @@ function Contact() {
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
+  const pendingNavigation = useRef(null)
 
   // Mark that user has seen the contact loader
   useEffect(() => {
@@ -189,6 +190,31 @@ function Contact() {
     }
   }, [loading])
 
+  // Handle browser back/forward button - show exit loader
+  useEffect(() => {
+    const handlePopState = (e) => {
+      // Prevent default navigation, show exit loader first
+      e.preventDefault()
+      
+      // Push current state back to prevent immediate navigation
+      window.history.pushState(null, '', window.location.pathname)
+      
+      // Store the intended destination
+      pendingNavigation.current = '/'
+      
+      // Trigger exit animation
+      setExiting(true)
+    }
+
+    // Push initial state so we can intercept back button
+    window.history.pushState(null, '', window.location.pathname)
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
   // Set page title
   useEffect(() => {
     document.title = 'OVERHAUL | Contact'
@@ -196,12 +222,15 @@ function Contact() {
 
   const handleBackHome = (e) => {
     e.preventDefault()
+    pendingNavigation.current = '/'
     setExiting(true)
   }
 
   // Handle exit - show loader then navigate
   const handleExitComplete = () => {
-    navigate('/', { state: { skipLoader: true } })
+    const destination = pendingNavigation.current || '/'
+    pendingNavigation.current = null
+    navigate(destination, { state: { skipLoader: true } })
   }
 
   // Cursor tracking - lag-free with requestAnimationFrame
