@@ -1147,7 +1147,7 @@ function Demo() {
                   >
                     <div className="demo-hero-tag">
                       <span className="tag-dot" />
-                      <span>TRAFFIC INTELLIGENCE PLATFORM</span>
+                      <span>EARTH INTELLIGENCE PLATFORM</span>
                     </div>
                     <h1 className="demo-hero-title">
                       LIVE<br/>
