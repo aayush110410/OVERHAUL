@@ -588,19 +588,11 @@ function RevealText({ children, className = '' }) {
 function App() {
   const location = useLocation()
   
-  // Check if we should skip loader - either from navigation state OR if user already saw it this session
-  const hasSeenLoader = sessionStorage.getItem('hasSeenLoader') === 'true'
-  const skipLoader = location.state?.skipLoader || hasSeenLoader
+  // Check if we should skip loader - from navigation state (e.g., coming back from contact page)
+  const skipLoader = location.state?.skipLoader || false
   const [loading, setLoading] = useState(!skipLoader)
   const [showJoinForm, setShowJoinForm] = useState(false)
   const containerRef = useRef(null)
-  
-  // Mark that user has seen the loader
-  useEffect(() => {
-    if (!loading) {
-      sessionStorage.setItem('hasSeenLoader', 'true')
-    }
-  }, [loading])
   
   const { scrollYProgress } = useScroll()
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 80, damping: 40, mass: 0.5 })

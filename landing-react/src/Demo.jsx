@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from 'chart.js'
@@ -274,9 +274,9 @@ function RecommendationCard({ title, desc, metrics, index }) {
 // MAIN DEMO PAGE
 // ============================================
 function Demo() {
-  // Check if we've seen the loader this session
-  const hasSeenDemoLoader = sessionStorage.getItem('hasSeenDemoLoader') === 'true'
-  const [loading, setLoading] = useState(!hasSeenDemoLoader)
+  const location = useLocation()
+  const skipLoader = location.state?.skipLoader || false
+  const [loading, setLoading] = useState(!skipLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
@@ -287,19 +287,11 @@ function Demo() {
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
 
-  // Mark that user has seen the demo loader
-  useEffect(() => {
-    if (!loading) {
-      sessionStorage.setItem('hasSeenDemoLoader', 'true')
-    }
-  }, [loading])
-
   // Handle browser back/forward buttons
   useEffect(() => {
-    window.history.pushState(null, '', window.location.href)
+    window.history.pushState({ skipLoader: true }, '', window.location.href)
     
     const handlePopState = (e) => {
-      window.history.pushState(null, '', window.location.href)
       setExiting(true)
       setPendingNavigation('/')
     }

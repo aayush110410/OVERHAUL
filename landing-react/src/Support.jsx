@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import './App.css'
 
 // ============================================
@@ -221,9 +221,9 @@ function QuickAmountBtn({ amount, selected, onClick }) {
 // SUPPORT PAGE
 // ============================================
 function Support() {
-  // Check if we've seen the loader this session
-  const hasSeenSupportLoader = sessionStorage.getItem('hasSeenSupportLoader') === 'true'
-  const [loading, setLoading] = useState(!hasSeenSupportLoader)
+  const location = useLocation()
+  const skipLoader = location.state?.skipLoader || false
+  const [loading, setLoading] = useState(!skipLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [amount, setAmount] = useState('')
@@ -240,19 +240,11 @@ function Support() {
   const quickAmounts = [100, 500, 1000, 2500, 5000]
   const minAmount = 10
 
-  // Mark that user has seen the support loader
-  useEffect(() => {
-    if (!loading) {
-      sessionStorage.setItem('hasSeenSupportLoader', 'true')
-    }
-  }, [loading])
-
   // Handle browser back/forward buttons
   useEffect(() => {
-    window.history.pushState(null, '', window.location.href)
+    window.history.pushState({ skipLoader: true }, '', window.location.href)
     
     const handlePopState = (e) => {
-      window.history.pushState(null, '', window.location.href)
       setExiting(true)
       setPendingNavigation('/')
     }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import './App.css'
 
 // ============================================
@@ -170,9 +170,9 @@ function ExitLoader({ onComplete }) {
 // CONTACT PAGE
 // ============================================
 function Contact() {
-  // Check if we've seen the loader this session
-  const hasSeenContactLoader = sessionStorage.getItem('hasSeenContactLoader') === 'true'
-  const [loading, setLoading] = useState(!hasSeenContactLoader)
+  const location = useLocation()
+  const skipLoader = location.state?.skipLoader || false
+  const [loading, setLoading] = useState(!skipLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
@@ -183,22 +183,13 @@ function Contact() {
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
 
-  // Mark that user has seen the contact loader
-  useEffect(() => {
-    if (!loading) {
-      sessionStorage.setItem('hasSeenContactLoader', 'true')
-    }
-  }, [loading])
-
   // Handle browser back/forward buttons
   useEffect(() => {
     // Push a state so we can intercept the back button
-    window.history.pushState(null, '', window.location.href)
+    window.history.pushState({ skipLoader: true }, '', window.location.href)
     
     const handlePopState = (e) => {
-      // Prevent immediate navigation
-      window.history.pushState(null, '', window.location.href)
-      // Trigger exit animation
+      // Trigger exit animation then navigate
       setExiting(true)
       setPendingNavigation('/')
     }
