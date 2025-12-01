@@ -76,6 +76,7 @@ function JoinUsForm({ isOpen, onClose }) {
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          id="join-form-dropdown"
           className="join-form-dropdown"
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
@@ -632,7 +633,12 @@ function App() {
               className="nav-cta" 
               onClick={() => {
                 document.getElementById('join-us-buttons')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                setTimeout(() => setShowJoinForm(true), 800)
+                setTimeout(() => {
+                  setShowJoinForm(true)
+                  setTimeout(() => {
+                    document.getElementById('join-form-dropdown')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }, 600)
+                }, 800)
               }}
             >
               JOIN US
