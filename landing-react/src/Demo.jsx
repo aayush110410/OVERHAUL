@@ -279,13 +279,13 @@ function Demo() {
   const [loading, setLoading] = useState(!hasSeenDemoLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState(null)
   const navigate = useNavigate()
   
   // Cursor refs for lag-free tracking
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
-  const pendingNavigation = useRef(null)
 
   // Mark that user has seen the demo loader
   useEffect(() => {
@@ -294,18 +294,18 @@ function Demo() {
     }
   }, [loading])
 
-  // Handle browser back/forward button - show exit loader
+  // Handle browser back/forward buttons
   useEffect(() => {
+    window.history.pushState(null, '', window.location.href)
+    
     const handlePopState = (e) => {
-      e.preventDefault()
-      window.history.pushState(null, '', window.location.pathname)
-      pendingNavigation.current = '/'
+      window.history.pushState(null, '', window.location.href)
       setExiting(true)
+      setPendingNavigation('/')
     }
-
-    window.history.pushState(null, '', window.location.pathname)
+    
     window.addEventListener('popstate', handlePopState)
-
+    
     return () => {
       window.removeEventListener('popstate', handlePopState)
     }
@@ -385,14 +385,12 @@ function Demo() {
   // Handle back navigation
   const handleBackHome = (e) => {
     e.preventDefault()
-    pendingNavigation.current = '/'
     setExiting(true)
+    setPendingNavigation('/')
   }
 
   const handleExitComplete = () => {
-    const destination = pendingNavigation.current || '/'
-    pendingNavigation.current = null
-    navigate(destination, { state: { skipLoader: true } })
+    navigate(pendingNavigation || '/', { state: { skipLoader: true } })
   }
 
   // Clock

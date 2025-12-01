@@ -175,13 +175,13 @@ function Contact() {
   const [loading, setLoading] = useState(!hasSeenContactLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState(null)
   const navigate = useNavigate()
   
   // Cursor refs for lag-free tracking
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
-  const pendingNavigation = useRef(null)
 
   // Mark that user has seen the contact loader
   useEffect(() => {
@@ -190,26 +190,21 @@ function Contact() {
     }
   }, [loading])
 
-  // Handle browser back/forward button - show exit loader
+  // Handle browser back/forward buttons
   useEffect(() => {
+    // Push a state so we can intercept the back button
+    window.history.pushState(null, '', window.location.href)
+    
     const handlePopState = (e) => {
-      // Prevent default navigation, show exit loader first
-      e.preventDefault()
-      
-      // Push current state back to prevent immediate navigation
-      window.history.pushState(null, '', window.location.pathname)
-      
-      // Store the intended destination
-      pendingNavigation.current = '/'
-      
+      // Prevent immediate navigation
+      window.history.pushState(null, '', window.location.href)
       // Trigger exit animation
       setExiting(true)
+      setPendingNavigation('/')
     }
-
-    // Push initial state so we can intercept back button
-    window.history.pushState(null, '', window.location.pathname)
+    
     window.addEventListener('popstate', handlePopState)
-
+    
     return () => {
       window.removeEventListener('popstate', handlePopState)
     }
@@ -222,15 +217,13 @@ function Contact() {
 
   const handleBackHome = (e) => {
     e.preventDefault()
-    pendingNavigation.current = '/'
     setExiting(true)
+    setPendingNavigation('/')
   }
 
   // Handle exit - show loader then navigate
   const handleExitComplete = () => {
-    const destination = pendingNavigation.current || '/'
-    pendingNavigation.current = null
-    navigate(destination, { state: { skipLoader: true } })
+    navigate(pendingNavigation || '/', { state: { skipLoader: true } })
   }
 
   // Cursor tracking - lag-free with requestAnimationFrame

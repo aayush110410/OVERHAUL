@@ -229,13 +229,13 @@ function Support() {
   const [amount, setAmount] = useState('')
   const [paymentStatus, setPaymentStatus] = useState(null)
   const [isFocused, setIsFocused] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState(null)
   const navigate = useNavigate()
   
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
   const inputRef = useRef(null)
-  const pendingNavigation = useRef(null)
 
   const quickAmounts = [100, 500, 1000, 2500, 5000]
   const minAmount = 10
@@ -247,18 +247,18 @@ function Support() {
     }
   }, [loading])
 
-  // Handle browser back/forward button - show exit loader
+  // Handle browser back/forward buttons
   useEffect(() => {
+    window.history.pushState(null, '', window.location.href)
+    
     const handlePopState = (e) => {
-      e.preventDefault()
-      window.history.pushState(null, '', window.location.pathname)
-      pendingNavigation.current = '/'
+      window.history.pushState(null, '', window.location.href)
       setExiting(true)
+      setPendingNavigation('/')
     }
-
-    window.history.pushState(null, '', window.location.pathname)
+    
     window.addEventListener('popstate', handlePopState)
-
+    
     return () => {
       window.removeEventListener('popstate', handlePopState)
     }
@@ -284,14 +284,12 @@ function Support() {
 
   const handleBackHome = (e) => {
     e.preventDefault()
-    pendingNavigation.current = '/'
     setExiting(true)
+    setPendingNavigation('/')
   }
 
   const handleExitComplete = () => {
-    const destination = pendingNavigation.current || '/'
-    pendingNavigation.current = null
-    navigate(destination, { state: { skipLoader: true } })
+    navigate(pendingNavigation || '/', { state: { skipLoader: true } })
   }
 
   // Cursor tracking
