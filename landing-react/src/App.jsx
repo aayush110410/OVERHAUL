@@ -627,8 +627,8 @@ function App() {
               <a href="#journey">ROADMAP</a>
               <Link to="/contact">CONTACT</Link>
             </div>
-            <MagneticButton className="nav-cta" href="#contact">
-              GET STARTED
+            <MagneticButton className="nav-cta" to="/support">
+              JOIN US
             </MagneticButton>
           </nav>
 
@@ -1315,7 +1315,7 @@ function App() {
               <div className="footer-col">
                 <h4>PLATFORM</h4>
                 <a href="#features">Features</a>
-                <a href="#">Pricing</a>
+                <Link to="/support">Join The Revolution</Link>
                 <a href="#journey">Roadmap</a>
                 <a href="#">Changelog</a>
               </div>
