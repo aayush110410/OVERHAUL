@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import Demo from './Demo.jsx'
 import Contact from './Contact.jsx'
+import { PrivacyPolicy, TermsConditions, RefundsPolicy, ShippingPolicy } from './Policies.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -13,6 +14,10 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<App />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsConditions />} />
+        <Route path="/refunds" element={<RefundsPolicy />} />
+        <Route path="/shipping" element={<ShippingPolicy />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

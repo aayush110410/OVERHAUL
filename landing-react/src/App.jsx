@@ -1327,11 +1327,11 @@ function App() {
                 <Link to="/contact">Contact</Link>
               </div>
               <div className="footer-col">
-                <h4>RESOURCES</h4>
-                <a href="#">Documentation</a>
-                <a href="#">API Reference</a>
-                <a href="#">Tutorials</a>
-                <a href="#">Blog</a>
+                <h4>LEGAL</h4>
+                <Link to="/privacy">Privacy Policy</Link>
+                <Link to="/terms">Terms & Conditions</Link>
+                <Link to="/refunds">Cancellation & Refunds</Link>
+                <Link to="/shipping">Shipping</Link>
               </div>
               <div className="footer-col">
                 <h4>FOLLOW</h4>
@@ -1346,8 +1346,8 @@ function App() {
           <div className="footer-bottom">
             <span>© 2025 OVERHAUL. ALL RIGHTS RESERVED.</span>
             <div className="footer-legal">
-              <a href="#">Privacy Policy</a>
-              <a href="#">Terms of Service</a>
+              <Link to="/privacy">Privacy Policy</Link>
+              <Link to="/terms">Terms of Service</Link>
             </div>
           </div>
         </footer>
