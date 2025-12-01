@@ -170,7 +170,9 @@ function ExitLoader({ onComplete }) {
 // CONTACT PAGE
 // ============================================
 function Contact() {
-  const [loading, setLoading] = useState(true)
+  // Check if we've seen the loader this session
+  const hasSeenContactLoader = sessionStorage.getItem('hasSeenContactLoader') === 'true'
+  const [loading, setLoading] = useState(!hasSeenContactLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
   const navigate = useNavigate()
@@ -179,6 +181,13 @@ function Contact() {
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
+
+  // Mark that user has seen the contact loader
+  useEffect(() => {
+    if (!loading) {
+      sessionStorage.setItem('hasSeenContactLoader', 'true')
+    }
+  }, [loading])
 
   // Set page title
   useEffect(() => {

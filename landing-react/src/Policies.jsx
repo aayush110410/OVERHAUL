@@ -340,7 +340,10 @@ Email: founders@overhaul.co.in`
 // POLICY PAGE COMPONENT
 // ============================================
 function PolicyPage({ type }) {
-  const [loading, setLoading] = useState(true)
+  // Check if we've seen the loader this session for this policy type
+  const loaderKey = `hasSeenPolicyLoader_${type}`
+  const hasSeenLoader = sessionStorage.getItem(loaderKey) === 'true'
+  const [loading, setLoading] = useState(!hasSeenLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
   const navigate = useNavigate()
@@ -354,6 +357,13 @@ function PolicyPage({ type }) {
     : type === 'terms' ? 'Terms & Conditions'
     : type === 'refunds' ? 'Cancellation & Refunds'
     : 'Shipping Policy'
+
+  // Mark that user has seen this policy loader
+  useEffect(() => {
+    if (!loading) {
+      sessionStorage.setItem(loaderKey, 'true')
+    }
+  }, [loading, loaderKey])
 
   // Set page title
   useEffect(() => {

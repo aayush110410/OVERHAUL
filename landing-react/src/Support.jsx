@@ -221,7 +221,9 @@ function QuickAmountBtn({ amount, selected, onClick }) {
 // SUPPORT PAGE
 // ============================================
 function Support() {
-  const [loading, setLoading] = useState(true)
+  // Check if we've seen the loader this session
+  const hasSeenSupportLoader = sessionStorage.getItem('hasSeenSupportLoader') === 'true'
+  const [loading, setLoading] = useState(!hasSeenSupportLoader)
   const [exiting, setExiting] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [amount, setAmount] = useState('')
@@ -236,6 +238,13 @@ function Support() {
 
   const quickAmounts = [100, 500, 1000, 2500, 5000]
   const minAmount = 10
+
+  // Mark that user has seen the support loader
+  useEffect(() => {
+    if (!loading) {
+      sessionStorage.setItem('hasSeenSupportLoader', 'true')
+    }
+  }, [loading])
 
   // Set page title
   useEffect(() => {
