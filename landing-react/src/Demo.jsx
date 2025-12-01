@@ -283,6 +283,11 @@ function Demo() {
   const cursorRef = useRef(null)
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'OVERHAUL | Simulator'
+  }, [])
   
   // Demo State
   const [prompt, setPrompt] = useState('Analyze impact of increased EV adoption on corridor traffic flow and air quality')

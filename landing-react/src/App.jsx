@@ -594,6 +594,11 @@ function App() {
   const { scrollYProgress } = useScroll()
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 80, damping: 40, mass: 0.5 })
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'OVERHAUL | Home'
+  }, [])
+
   return (
     <>
       {/* Custom Cursor */}

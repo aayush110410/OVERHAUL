@@ -180,6 +180,11 @@ function Contact() {
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'OVERHAUL | Contact'
+  }, [])
+
   const handleBackHome = (e) => {
     e.preventDefault()
     setExiting(true)
