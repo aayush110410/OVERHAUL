@@ -8,6 +8,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Health check endpoint for keep-alive pings
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'alive', timestamp: new Date().toISOString() });
+});
+
 // Serve static files from dist folder
 app.use(express.static(path.join(__dirname, 'dist')));
 
