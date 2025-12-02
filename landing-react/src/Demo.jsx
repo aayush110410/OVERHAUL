@@ -13,7 +13,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, 
 // API Base URL
 const API_BASE = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:8000'
-  : 'https://overhaul-le1a.onrender.com'
+  : 'https://overhaul-1.onrender.com'
 
 // ============================================
 // OV LOADER (Same style as Contact page)
