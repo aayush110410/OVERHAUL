@@ -1334,6 +1334,11 @@ async def root():
     """API root - Render backend is running"""
     return {"status": "ok", "message": "OVERHAUL API Backend", "docs": "/docs"}
 
+@app.get("/health")
+async def health():
+    """Health check endpoint for uptime monitoring"""
+    return {"status": "alive", "service": "overhaul-backend"}
+
 @app.get("/live/aqi")
 async def live_aqi(
     lat: float = Query(28.62, description="Latitude near corridor"),
