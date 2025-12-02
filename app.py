@@ -16,6 +16,15 @@ import httpx
 from traffic_god_bridge import TrafficGodService
 from agents.aqi_agent import AQIAgent
 
+# Import the new LDRAGo Brain
+try:
+    from agents.ldrago_brain import ldrago_brain, pattern_learner, LDRAgoBrain, NoidaPatternLearner
+    LDRAGO_BRAIN_AVAILABLE = True
+    print("✓ LDRAGo Brain initialized with Gemini")
+except Exception as e:
+    LDRAGO_BRAIN_AVAILABLE = False
+    print(f"⚠ LDRAGo Brain not available: {e}")
+
 # Initialize Agents
 aqi_agent = AQIAgent()
 
@@ -749,17 +758,57 @@ class LDRagoController:
 
         start = time.time()
         started_at = datetime.utcnow().isoformat() + "Z"
+        logs = []
         
-        # --- 1. Thinking / Research Phase ---
-        # We simulate a "research" phase where we gather data from multiple sources.
-        logs = ["Parsed natural language prompt"]
+        # ========================================
+        # NEW: Use LDRAGo Brain if available
+        # ========================================
+        brain_result = None
+        thought = None
+        plan = None
         
-        # Simulate "Thinking" time even in fast mode to show we are working
-        await asyncio.sleep(1.5) 
-        logs.append("Initiating multi-source data retrieval...")
+        if LDRAGO_BRAIN_AVAILABLE:
+            try:
+                logs.append("🧠 LDRAGo Brain activated (Gemini-powered)")
+                
+                # Phase 1: THINK - Understand the prompt deeply
+                logs.append("📊 Phase 1: Deep prompt analysis...")
+                thought = await ldrago_brain.think(prompt)
+                logs.append(f"✓ Understood: {thought.get('understood_intent', 'Processing...')[:100]}")
+                
+                # Get date-specific context from pattern learner
+                date_context = pattern_learner.get_context_for_date()
+                logs.append(f"📅 Context: {date_context.get('day_of_week', 'Unknown')}, Expected AQI: {date_context.get('expected_aqi', 'N/A'):.0f}")
+                
+                # Phase 2: PLAN - Create execution strategy
+                logs.append("📋 Phase 2: Creating intelligent execution plan...")
+                plan = await ldrago_brain.plan(thought, {"date_context": date_context, "patterns": pattern_learner.get_all_patterns()})
+                logs.append(f"✓ Plan: {plan.get('plan_summary', 'Standard analysis')[:100]}")
+                
+                brain_result = {"thought": thought, "plan": plan}
+                
+            except Exception as e:
+                logs.append(f"⚠ LDRAGo Brain partial failure: {str(e)[:50]}, falling back...")
+                brain_result = None
+        else:
+            logs.append("Using standard analysis pipeline (LDRAGo Brain not available)")
+        
+        # --- Continue with data collection and simulation ---
+        logs.append("⚡ Phase 3: Executing analysis...")
 
+        # Extract signals (enhanced with brain insights if available)
         signals = extract_prompt_signals(prompt)
-        logs.append(f"Analyzed User Intent: Detected {signals.get('ev_share_pct', 0)}% EV target, Economic Focus={signals.get('economic_focus')}")
+        if thought:
+            # Enhance signals with brain's understanding
+            for entity in thought.get("key_entities", []):
+                if "%" in str(entity) and "ev" in prompt.lower():
+                    try:
+                        pct = float(re.search(r"(\d+)", str(entity)).group(1))
+                        signals["ev_share_pct"] = pct
+                    except:
+                        pass
+        
+        logs.append(f"Analyzed signals: EV={signals.get('ev_share_pct', 0)}%, Focus={signals.get('economic_focus', 'general')}")
         
         scenario = scenario_from_payload(prompt, req.scenario, signals)
         
@@ -881,6 +930,8 @@ class LDRagoController:
         gdp_uplift_pct = clamp(signals.get("ev_share_pct", 0.0) * 0.12 + travel_delta * 0.4, -5.0, 12.0)
         
         deep_bundle = None
+        synthesis = None
+        
         if req.mode.lower() == "deep":
             logs.append("Running deep multi-agent analysis (LDRAGO Core)...")
             deep_bundle = await self.run_deep_chain(
@@ -907,21 +958,56 @@ class LDRagoController:
             top_hotspot = traffic_god_report["hotspots"][0]
             narratives.insert(0, f"Traffic God Alert: High congestion predicted at {top_hotspot['lat']:.3f}, {top_hotspot['lon']:.3f} due to {top_hotspot.get('cause', 'unknown factors')}.")
 
-        summary = self.llm.compose_summary(
-            prompt,
-            signals,
-            baseline_metrics,
-            candidate_result,
-            travel_delta,
-            pm_delta,
-            deep_bundle,
-            live_context,
-        )
+        # ========================================
+        # NEW: Use LDRAGo Brain for intelligent synthesis
+        # ========================================
+        if LDRAGO_BRAIN_AVAILABLE and thought:
+            try:
+                logs.append("🎯 Phase 4: LDRAGo Brain synthesizing insights...")
+                
+                execution_results = {
+                    "baseline_metrics": baseline_metrics,
+                    "candidate_metrics": candidate_result,
+                    "travel_delta_pct": travel_delta,
+                    "pm_delta_pct": pm_delta,
+                    "gdp_uplift_pct": gdp_uplift_pct,
+                    "traffic_summary": f"Travel time: {baseline_metrics['avg_travel_time_min']:.1f}min baseline → {candidate_result['avg_travel_time_min']:.1f}min with intervention",
+                    "aqi_summary": f"PM2.5: {baseline_metrics['pm25']:.0f} → {candidate_result['pm25']:.0f} µg/m³",
+                    "live_data": live_context,
+                    "date_context": pattern_learner.get_context_for_date() if pattern_learner else {},
+                }
+                
+                synthesis = await ldrago_brain.synthesize(prompt, thought, plan, execution_results)
+                
+                # Generate intelligent narrative
+                intelligent_summary = await ldrago_brain.generate_narrative(synthesis, mode="concise")
+                
+                logs.append("✓ LDRAGo Brain synthesis complete")
+                
+            except Exception as e:
+                logs.append(f"⚠ Brain synthesis error: {str(e)[:50]}, using fallback")
+                synthesis = None
+                intelligent_summary = None
+
+        # Use brain-generated summary if available, otherwise fall back to old method
+        if synthesis and 'intelligent_summary' in dir() and intelligent_summary:
+            summary = intelligent_summary
+        else:
+            summary = self.llm.compose_summary(
+                prompt,
+                signals,
+                baseline_metrics,
+                candidate_result,
+                travel_delta,
+                pm_delta,
+                deep_bundle,
+                live_context,
+            )
 
         mode = "deep" if req.mode.lower() == "deep" else "fast"
         completed_at = datetime.utcnow().isoformat() + "Z"
         
-        logs.append("Finalizing response payload")
+        logs.append("✅ Analysis complete")
         
         outputs = {
             "tldr": summary,
@@ -936,6 +1022,18 @@ class LDRagoController:
             "completed_at": completed_at,
             "liveContext": live_context,
         }
+        
+        # Add LDRAGo Brain insights if available
+        if synthesis:
+            outputs["brainInsights"] = {
+                "understanding": thought.get("understood_intent", "") if thought else "",
+                "keyFindings": synthesis.get("key_findings", []),
+                "detailedAnalysis": synthesis.get("detailed_analysis", {}),
+                "dataTransparency": synthesis.get("data_transparency", {}),
+                "followUpSuggestions": synthesis.get("follow_up_suggestions", []),
+            }
+            outputs["confidenceLevel"] = synthesis.get("data_transparency", {}).get("confidence_level", "medium")
+        
         if deep_bundle:
             outputs["deepFacts"] = deep_bundle.get("facts", [])
             outputs["multiAgentDigest"] = deep_bundle.get("dialogue", [])
