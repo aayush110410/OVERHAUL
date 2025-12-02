@@ -25,6 +25,15 @@ except Exception as e:
     LDRAGO_BRAIN_AVAILABLE = False
     print(f"⚠ LDRAGo Brain not available: {e}")
 
+# Import the new Unified Brain (validates model outputs)
+try:
+    from agents.unified_brain import get_brain as get_unified_brain
+    UNIFIED_BRAIN_AVAILABLE = True
+    print("✓ Unified Brain loaded (model validation enabled)")
+except Exception as e:
+    UNIFIED_BRAIN_AVAILABLE = False
+    print(f"⚠ Unified Brain not available: {e}")
+
 # Initialize Agents
 aqi_agent = AQIAgent()
 
@@ -862,15 +871,31 @@ class LDRagoController:
 
         # --- 3. Optimization / Ranking Phase ---
         logs.append("Evaluating intervention candidates against predictive models...")
-        ranked = rank_candidates_meta(scenario)
-        best_candidate = ranked[0] if ranked else None
-        candidate_result = None
-        if best_candidate:
-            merged = dict(scenario)
-            merged.update(best_candidate.get("params", {}))
-            candidate_result = simulate_once(merged)
+        
+        # CRITICAL FIX: If user specified an EV share, THAT is the candidate scenario
+        # Don't replace it with some random candidate from the list!
+        ev_share = signals.get("ev_share_pct", 0)
+        
+        if ev_share > 0:
+            # User specified EV adoption - simulate their exact scenario
+            logs.append(f"User scenario: {ev_share}% EV adoption")
+            candidate_result = simulate_once(scenario)  # scenario already has ev_share_pct
             if candidate_result and use_surrogates:
-                candidate_result = enrich_with_surrogate_metrics(candidate_result, merged)
+                candidate_result = enrich_with_surrogate_metrics(candidate_result, scenario)
+            best_candidate = {"name": f"EV_{ev_share}pct", "desc": f"{ev_share}% EV adoption scenario"}
+            ranked = [{"name": best_candidate["name"], "desc": best_candidate["desc"], "pred_delta_tt_min": 0}]
+        else:
+            # No specific scenario - use candidate ranking
+            ranked = rank_candidates_meta(scenario)
+            best_candidate = ranked[0] if ranked else None
+            candidate_result = None
+            if best_candidate:
+                merged = dict(scenario)
+                merged.update(best_candidate.get("params", {}))
+                candidate_result = simulate_once(merged)
+                if candidate_result and use_surrogates:
+                    candidate_result = enrich_with_surrogate_metrics(candidate_result, merged)
+        
         candidate_result = candidate_result or dict(baseline_metrics)
 
         infra = propose_infrastructure_suggestions()       
@@ -959,7 +984,47 @@ class LDRagoController:
             narratives.insert(0, f"Traffic God Alert: High congestion predicted at {top_hotspot['lat']:.3f}, {top_hotspot['lon']:.3f} due to {top_hotspot.get('cause', 'unknown factors')}.")
 
         # ========================================
-        # NEW: Use LDRAGo Brain for intelligent synthesis
+        # CRITICAL: Use Unified Brain to VALIDATE model outputs
+        # ========================================
+        unified_result = None
+        if UNIFIED_BRAIN_AVAILABLE:
+            try:
+                logs.append("🔬 Validating model outputs with Unified Brain...")
+                
+                unified_brain = get_unified_brain()
+                
+                # Pass raw model outputs for validation
+                raw_outputs = {
+                    "baseline_aqi": baseline_metrics.get("pm25", 200),
+                    "predicted_aqi": candidate_result.get("pm25", 200),
+                    "baseline_speed": 28.0,  # Noida average
+                    "predicted_speed": 28.0 * (1 - travel_delta/100) if travel_delta else 28.0
+                }
+                
+                unified_result = await unified_brain.process_query(prompt, raw_outputs)
+                
+                # If corrections were made, update our metrics
+                if unified_result.get("result", {}).get("corrections_made"):
+                    corrections = unified_result["result"]["corrections"]
+                    if "aqi" in corrections:
+                        candidate_result["pm25"] = corrections["aqi"]
+                        logs.append(f"⚠️ AQI CORRECTED: {raw_outputs['predicted_aqi']:.0f} → {corrections['aqi']:.0f}")
+                    
+                    # Recalculate deltas with corrected values
+                    pm_delta = pct_delta(baseline_metrics["pm25"], candidate_result["pm25"])
+                    
+                    # Rebuild impact cards with corrected values
+                    impact_cards = build_impact_cards(baseline_metrics, candidate_result, signals)
+                    domain_rollups = rollup_domains(impact_cards)
+                    
+                logs.append("✓ Model validation complete")
+                
+            except Exception as e:
+                logs.append(f"⚠ Validation error: {str(e)[:50]}")
+                unified_result = None
+
+        # ========================================
+        # Use LDRAGo Brain for intelligent synthesis
         # ========================================
         if LDRAGO_BRAIN_AVAILABLE and thought:
             try:
@@ -975,6 +1040,7 @@ class LDRagoController:
                     "aqi_summary": f"PM2.5: {baseline_metrics['pm25']:.0f} → {candidate_result['pm25']:.0f} µg/m³",
                     "live_data": live_context,
                     "date_context": pattern_learner.get_context_for_date() if pattern_learner else {},
+                    "unified_validation": unified_result.get("result") if unified_result else None,
                 }
                 
                 synthesis = await ldrago_brain.synthesize(prompt, thought, plan, execution_results)
@@ -988,10 +1054,16 @@ class LDRagoController:
                 logs.append(f"⚠ Brain synthesis error: {str(e)[:50]}, using fallback")
                 synthesis = None
                 intelligent_summary = None
+        
+        # Use Unified Brain synthesis if LDRAGo failed
+        if unified_result and not synthesis:
+            synthesis = unified_result.get("result", {}).get("synthesis")
 
         # Use brain-generated summary if available, otherwise fall back to old method
         if synthesis and 'intelligent_summary' in dir() and intelligent_summary:
             summary = intelligent_summary
+        elif unified_result and unified_result.get("result", {}).get("synthesis", {}).get("executive_summary"):
+            summary = unified_result["result"]["synthesis"]["executive_summary"]
         else:
             summary = self.llm.compose_summary(
                 prompt,
@@ -1023,8 +1095,24 @@ class LDRagoController:
             "liveContext": live_context,
         }
         
-        # Add LDRAGo Brain insights if available
-        if synthesis:
+        # Add brain insights - prefer Unified Brain synthesis if available
+        if unified_result and unified_result.get("result", {}).get("synthesis"):
+            unified_synthesis = unified_result["result"]["synthesis"]
+            outputs["brainInsights"] = {
+                "understanding": thought.get("understood_intent", "") if thought else "Analyzed with Unified Brain",
+                "keyFindings": unified_synthesis.get("key_findings", []),
+                "detailedAnalysis": unified_synthesis.get("detailed_analysis", {}),
+                "dataTransparency": {
+                    "sources_used": ["Noida TomTom traffic data", "Noida AQI sensors", "ML models"],
+                    "limitations": unified_synthesis.get("caveats", []),
+                    "confidence_level": unified_result["result"].get("confidence", "medium")
+                },
+                "followUpSuggestions": [],
+                "recommendations": unified_synthesis.get("recommendations", []),
+                "validationApplied": unified_result["result"].get("corrections_made", False),
+            }
+            outputs["confidenceLevel"] = unified_result["result"].get("confidence", "medium")
+        elif synthesis:
             outputs["brainInsights"] = {
                 "understanding": thought.get("understood_intent", "") if thought else "",
                 "keyFindings": synthesis.get("key_findings", []),
