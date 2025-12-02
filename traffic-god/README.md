@@ -41,3 +41,43 @@ python src/control/train_rl.py --episodes 1 --dry-run
 1. Drop sample videos under `data/raw/` (NGSIM, UA-DETRAC, or in-house captures).
 2. Build SUMO networks for the chosen intersection and store configs under `configs/sumo/`.
 3. Implement calibration, dashboard, and RL training loops following the step-by-step playbook in the project brief.
+
+## TomTom-powered Traffic Brain
+
+We now have an ingestion → feature-engineering → modeling toolchain that turns live TomTom data into actionable controls. Set your API key once:
+
+```bash
+export TOMTOM_API_KEY="p5ZzkdRmzx3RAJMK9I9Kq8RdSzYIuWHy"
+```
+
+Then run the pipeline from inside `traffic-god/`:
+
+```bash
+# 1) Harvest flow + incident snapshots for the Noida–Delhi corridor
+python -m src.data.tomtom.ingest \
+	--bbox 28.50 28.75 77.25 77.50 \
+	--grid 4 4 \
+	--snapshots 6 \
+	--sleep-seconds 30 \
+	--output data/processed/tomtom
+
+# 2) Build ML-ready features (lags, congestion ratios, incident counts)
+python -m src.analysis.tomtom_features \
+	--input data/processed/tomtom \
+	--output data/processed/tomtom_features.parquet
+
+# 3) Train the TrafficGod model + emit hotspot report
+python -m src.control.traffic_god \
+	--dataset data/processed/tomtom_features.parquet \
+	--model-out data/models/traffic_god.joblib \
+	--report-out data/reports/traffic_god_report.json
+```
+
+The final JSON report includes:
+
+- Validation metrics (MAE / R²)
+- Ranked congestion hotspots with probable cause (incident vs. demand)
+- Tactical actions (signal tweaks, reversible lanes, clearance crews)
+- Heuristic detour paths you can feed into SUMO or the FastAPI server.
+
+Use the stored parquet/model artifacts to simulate counterfactuals inside `src/sim/sumo_env.py` or to seed new RL runs under `src/control/train_rl.py`.

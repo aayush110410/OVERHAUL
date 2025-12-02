@@ -20,3 +20,5 @@ pytest
 flake8
 mypy
 black
+requests
+joblib

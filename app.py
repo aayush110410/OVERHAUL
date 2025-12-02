@@ -804,29 +804,55 @@ class LDRagoController:
                 baseline_aqi = calculations.get("aqi_baseline", 200)
                 projected_aqi = calculations.get("aqi_projected", 200)
                 ev_pct = calculations.get("ev_percent", 0)
+                traffic_change = calculations.get("traffic_change_percent", 0)
+                intervention = calculations.get("intervention", "general")
+                query_type = master_result.get("meta", {}).get("query_type", "general")
                 
                 completed_at = datetime.utcnow().isoformat() + "Z"
                 
+                # Build impact cards based on what was analyzed
+                impact_cards = [
+                    {
+                        "metric": "Air Quality (AQI)",
+                        "value": f"{projected_aqi:.0f}",
+                        "delta": f"{calculations.get('aqi_change_percent', 0):.1f}%",
+                        "direction": "positive" if calculations.get('aqi_change_percent', 0) < 0 else "neutral"
+                    }
+                ]
+                
+                # Add intervention-specific card
+                if intervention == "ev_adoption" and ev_pct > 0:
+                    impact_cards.append({
+                        "metric": "EV Adoption",
+                        "value": f"{ev_pct:.0f}%",
+                        "delta": "scenario",
+                        "direction": "positive"
+                    })
+                elif traffic_change != 0:
+                    impact_cards.append({
+                        "metric": "Traffic Flow",
+                        "value": f"{traffic_change:+.1f}%",
+                        "delta": "improvement" if traffic_change > 0 else "impact",
+                        "direction": "positive" if traffic_change > 0 else "neutral"
+                    })
+                
+                # Add economic card if available
+                if calculations.get("healthcare_savings_crore") or calculations.get("total_economic_benefit_crore"):
+                    savings = calculations.get("total_economic_benefit_crore", calculations.get("healthcare_savings_crore", 0))
+                    impact_cards.append({
+                        "metric": "Economic Benefit",
+                        "value": f"₹{savings:.0f} Cr/yr",
+                        "delta": "projected",
+                        "direction": "positive"
+                    })
+                
                 outputs = {
                     "tldr": summary,
-                    "confidenceLevel": "high",
-                    "impactCards": [
-                        {
-                            "metric": "Air Quality (AQI)",
-                            "value": f"{projected_aqi:.0f}",
-                            "delta": f"{calculations.get('aqi_change_percent', 0):.1f}%",
-                            "direction": "positive" if calculations.get('aqi_change_percent', 0) < 0 else "negative"
-                        },
-                        {
-                            "metric": "EV Adoption",
-                            "value": f"{ev_pct:.0f}%",
-                            "delta": "scenario",
-                            "direction": "positive"
-                        }
-                    ],
+                    "confidenceLevel": response.get("transparency", {}).get("confidence_level", "high"),
+                    "impactCards": impact_cards,
                     "domains": {},
-                    "narrative": [response.get("detailed_analysis", {}).get("air_quality", "")],
-                    "explanation": [],
+                    "narrative": [response.get("detailed_analysis", {}).get("primary_answer", response.get("detailed_analysis", {}).get("air_quality", ""))],
+                    "explanation": [calculations.get("explanation", "")],
                     "mapOverlays": {},
                     "logs": logs,
                     "started_at": started_at,
@@ -837,13 +863,22 @@ class LDRagoController:
                         "keyFindings": response.get("key_findings", []),
                         "detailedAnalysis": response.get("detailed_analysis", {}),
                         "dataTransparency": {
-                            "sources_used": response.get("data_sources", []),
-                            "confidence_level": "high"
+                            "sources_used": response.get("transparency", {}).get("data_sources", response.get("data_sources", [])),
+                            "confidence_level": response.get("transparency", {}).get("confidence_level", "high")
                         },
                         "followUpSuggestions": [],
                         "recommendations": response.get("recommendations", []),
+                        "realWorldContext": response.get("real_world_context", {}),
+                        "queryType": master_result.get("meta", {}).get("query_type", "general"),
+                        "calculationType": master_result.get("meta", {}).get("calculation_type", "physics"),
+                        "research": master_result.get("research", {}),
+                        "hypothetical": master_result.get("hypothetical", {}),
                     }
                 }
+                
+                # Add metrics summary if available
+                if response.get("metrics_summary"):
+                    outputs["metricsSummary"] = response["metrics_summary"]
                 
                 return {
                     "summary": summary,

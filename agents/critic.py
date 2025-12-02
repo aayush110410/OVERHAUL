@@ -9,7 +9,7 @@ from datetime import datetime
 # Try to import Gemini for intelligent analysis
 try:
     import google.generativeai as genai
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBvcIzOx3s-w5VfFE6pn-UYmjQ6AN0tOws")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     genai.configure(api_key=GEMINI_API_KEY)
     GEMINI_AVAILABLE = True
 except ImportError:

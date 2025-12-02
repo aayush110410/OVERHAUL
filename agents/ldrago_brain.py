@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import google.generativeai as genai
 
 # Configure Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBvcIzOx3s-w5VfFE6pn-UYmjQ6AN0tOws")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 

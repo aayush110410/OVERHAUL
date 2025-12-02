@@ -1,0 +1,252 @@
+{
+  "dataset": "data/processed/tomtom_features.parquet",
+  "model_path": "models/traffic_god.joblib",
+  "train_mae": 0.02802182501673467,
+  "val_mae": 0.02795001620472538,
+  "val_rmse": 0.034230603838864435,
+  "val_r2": 0.9162079055470518,
+  "hotspots": [
+    {
+      "timestamp": "2025-11-24T14:35:58.115307+00:00",
+      "lat": 28.75,
+      "lon": 77.25,
+      "predicted_congestion": 0.07337326112165986,
+      "current_congestion": 0.04347826086956519,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    },
+    {
+      "timestamp": "2025-11-24T14:20:58.115307+00:00",
+      "lat": 28.75,
+      "lon": 77.25,
+      "predicted_congestion": 0.0725294357422303,
+      "current_congestion": 0.08695652173913049,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    },
+    {
+      "timestamp": "2025-11-24T14:50:58.115307+00:00",
+      "lat": 28.75,
+      "lon": 77.416667,
+      "predicted_congestion": 0.0664344939169192,
+      "current_congestion": 0.1063829787234043,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    },
+    {
+      "timestamp": "2025-11-24T14:20:58.115307+00:00",
+      "lat": 28.666667,
+      "lon": 77.416667,
+      "predicted_congestion": 0.06537754066972015,
+      "current_congestion": 0.06451612903225812,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    },
+    {
+      "timestamp": "2025-11-24T14:50:58.115307+00:00",
+      "lat": 28.75,
+      "lon": 77.25,
+      "predicted_congestion": 0.0648341125910458,
+      "current_congestion": 0.04347826086956519,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    },
+    {
+      "timestamp": "2025-11-24T14:50:58.115307+00:00",
+      "lat": 28.75,
+      "lon": 77.5,
+      "predicted_congestion": 0.06419311369774207,
+      "current_congestion": 0.06666666666666665,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    },
+    {
+      "timestamp": "2025-11-24T14:35:58.115307+00:00",
+      "lat": 28.666667,
+      "lon": 77.416667,
+      "predicted_congestion": 0.06411846858270238,
+      "current_congestion": 0.06451612903225812,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    },
+    {
+      "timestamp": "2025-11-24T14:35:58.115307+00:00",
+      "lat": 28.75,
+      "lon": 77.5,
+      "predicted_congestion": 0.06379668555100027,
+      "current_congestion": 0.0444444444444444,
+      "cause": "Recurring demand peak",
+      "suggestion": "Monitor"
+    }
+  ],
+  "detours": [
+    {
+      "origin": [
+        28.75,
+        77.25
+      ],
+      "avoid_cell": [
+        28.75,
+        77.25
+      ],
+      "suggested_path": [
+        [
+          28.76,
+          77.24
+        ],
+        [
+          28.77,
+          77.27
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    },
+    {
+      "origin": [
+        28.75,
+        77.25
+      ],
+      "avoid_cell": [
+        28.75,
+        77.25
+      ],
+      "suggested_path": [
+        [
+          28.76,
+          77.24
+        ],
+        [
+          28.77,
+          77.27
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    },
+    {
+      "origin": [
+        28.75,
+        77.416667
+      ],
+      "avoid_cell": [
+        28.75,
+        77.416667
+      ],
+      "suggested_path": [
+        [
+          28.76,
+          77.406667
+        ],
+        [
+          28.77,
+          77.436667
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    },
+    {
+      "origin": [
+        28.666667,
+        77.416667
+      ],
+      "avoid_cell": [
+        28.666667,
+        77.416667
+      ],
+      "suggested_path": [
+        [
+          28.676667000000002,
+          77.406667
+        ],
+        [
+          28.686667,
+          77.436667
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    },
+    {
+      "origin": [
+        28.75,
+        77.25
+      ],
+      "avoid_cell": [
+        28.75,
+        77.25
+      ],
+      "suggested_path": [
+        [
+          28.76,
+          77.24
+        ],
+        [
+          28.77,
+          77.27
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    },
+    {
+      "origin": [
+        28.75,
+        77.5
+      ],
+      "avoid_cell": [
+        28.75,
+        77.5
+      ],
+      "suggested_path": [
+        [
+          28.76,
+          77.49
+        ],
+        [
+          28.77,
+          77.52
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    },
+    {
+      "origin": [
+        28.666667,
+        77.416667
+      ],
+      "avoid_cell": [
+        28.666667,
+        77.416667
+      ],
+      "suggested_path": [
+        [
+          28.676667000000002,
+          77.406667
+        ],
+        [
+          28.686667,
+          77.436667
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    },
+    {
+      "origin": [
+        28.75,
+        77.5
+      ],
+      "avoid_cell": [
+        28.75,
+        77.5
+      ],
+      "suggested_path": [
+        [
+          28.76,
+          77.49
+        ],
+        [
+          28.77,
+          77.52
+        ]
+      ],
+      "explanation": "Shift flows north-east to unload hotspot"
+    }
+  ]
+}

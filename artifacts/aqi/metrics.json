@@ -1,0 +1,63 @@
+{
+  "folds": [
+    {
+      "fold": 1,
+      "mae": 37.89433715041405,
+      "rmse": 46.39993885769108
+    },
+    {
+      "fold": 2,
+      "mae": 39.83382385452943,
+      "rmse": 49.94776558013535
+    },
+    {
+      "fold": 3,
+      "mae": 133.58220968569378,
+      "rmse": 140.95672282046613
+    },
+    {
+      "fold": 4,
+      "mae": 24.84205158255721,
+      "rmse": 31.606750615416722
+    },
+    {
+      "fold": 5,
+      "mae": 53.294969476609346,
+      "rmse": 66.06323793797262
+    },
+    {
+      "fold": 6,
+      "mae": 54.535662294409384,
+      "rmse": 70.55880851986808
+    }
+  ],
+  "cv_mae_mean": 57.330509007368875,
+  "cv_rmse_mean": 67.58887072192499,
+  "pdf_snapshot": {
+    "Delhi": {
+      "category": "Very Poor",
+      "aqi_2025": 328.0,
+      "aqi_2024": 346.0,
+      "aqi_2023": 259.0
+    },
+    "Noida": {
+      "category": "Poor",
+      "aqi_2025": 227.0,
+      "aqi_2024": 307.0,
+      "aqi_2023": 213.0
+    }
+  },
+  "openaq": {
+    "openaq": {
+      "error": "OpenAQ request failed: 401 Client Error: Unauthorized for url: https://api.openaq.org/v3/latest?city=Noida&parameter=pm25&parameter=pm10&limit=50"
+    },
+    "waqi": {
+      "aqi": 164,
+      "dominentpol": "pm25",
+      "pm25": 164,
+      "pm10": 75,
+      "last_update": "2025-11-24 13:00:00",
+      "source_url": "https://api.waqi.info/feed/noida/?token=demo"
+    }
+  }
+}
