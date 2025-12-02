@@ -3255,4 +3255,244 @@
   }
 }
 
+/* ============================================
+   CLEAN ANALYSIS RESPONSE STYLES
+   ============================================ */
+.analysis-response {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 28px;
+  margin: 16px 0;
+  backdrop-filter: blur(10px);
+}
+
+.response-main {
+  margin-bottom: 24px;
+}
+
+.response-summary {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+  font-weight: 400;
+}
+
+.response-findings {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: rgba(204, 255, 0, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(204, 255, 0, 0.15);
+}
+
+.response-findings h4 {
+  color: var(--lime);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 16px 0;
+  font-weight: 600;
+}
+
+.response-findings ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.response-findings li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 16px;
+}
+
+.response-findings li:last-child {
+  border-bottom: none;
+}
+
+.finding-text {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.finding-confidence {
+  background: rgba(204, 255, 0, 0.2);
+  color: var(--lime);
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.response-details {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-section {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.detail-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.detail-content {
+  flex: 1;
+}
+
+.detail-content strong {
+  display: block;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.detail-content p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.response-recommendations {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: rgba(255, 77, 0, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 77, 0, 0.15);
+}
+
+.response-recommendations h4 {
+  color: var(--orange);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 16px 0;
+  font-weight: 600;
+}
+
+.response-recommendations ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.response-recommendations li {
+  position: relative;
+  padding: 10px 0 10px 24px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.response-recommendations li:last-child {
+  border-bottom: none;
+}
+
+.response-recommendations li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--orange);
+  font-weight: 600;
+}
+
+.response-narrative ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.response-narrative li {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.response-narrative li:last-child {
+  border-bottom: none;
+}
+
+.response-followup {
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.followup-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 12px 0;
+  font-style: italic;
+}
+
+.followup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.followup-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.followup-chip:hover {
+  background: rgba(204, 255, 0, 0.1);
+  border-color: rgba(204, 255, 0, 0.3);
+  color: var(--lime);
+}
+
+/* Responsive for clean response */
+@media (max-width: 768px) {
+  .analysis-response {
+    padding: 20px;
+  }
+  
+  .response-findings,
+  .response-recommendations {
+    padding: 16px;
+  }
+  
+  .detail-section {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .response-findings li {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .finding-confidence {
+    align-self: flex-start;
+  }
+}
+
 

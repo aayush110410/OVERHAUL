@@ -811,43 +811,105 @@ function Demo() {
       const narrative = Array.isArray(data.outputs?.narrative) ? data.outputs.narrative : []
       const explanation = Array.isArray(data.outputs?.explanation) ? data.outputs.explanation : []
       const deepFacts = Array.isArray(data.outputs?.deepFacts) ? data.outputs.deepFacts : []
-      const dialogue = Array.isArray(data.outputs?.multiAgentDigest) ? data.outputs.multiAgentDigest : []
-      const logs = Array.isArray(data.outputs?.logs) ? data.outputs.logs : []
+      const brainInsights = data.outputs?.brainInsights || null
 
       let html = ''
       
-      if (logs.length) {
-        html += `<div class="demo-system-trace">
-          <div class="trace-header"><span class="trace-dot">●</span> SYSTEM TRACE</div>
-          ${logs.map((l, i) => `<div class="trace-line" style="animation-delay: ${i * 0.1}s">&gt; ${l}</div>`).join('')}
+      // Clean, readable executive summary
+      html += `<div class="analysis-response">
+        <div class="response-main">
+          <p class="response-summary">${tldr}</p>
         </div>`
+
+      // Show brain insights if available (key findings)
+      if (brainInsights && brainInsights.keyFindings && brainInsights.keyFindings.length > 0) {
+        html += `<div class="response-findings">
+          <h4>Key Findings</h4>
+          <ul>`
+        brainInsights.keyFindings.slice(0, 4).forEach(f => {
+          const confidence = f.confidence ? Math.round(f.confidence * 100) : null
+          html += `<li>
+            <span class="finding-text">${f.finding}</span>
+            ${confidence ? `<span class="finding-confidence">${confidence}%</span>` : ''}
+          </li>`
+        })
+        html += `</ul></div>`
       }
 
-      html += `<p><strong>Executive summary:</strong> ${tldr}</p>`
-
-      if (narrative.length) {
-        html += '<p class="section-title"><strong>Key storylines:</strong></p><ul>' +
-          narrative.map(line => `<li>${line}</li>`).join('') +
-          '</ul>'
+      // Show detailed analysis sections if available
+      if (brainInsights && brainInsights.detailedAnalysis) {
+        const analysis = brainInsights.detailedAnalysis
+        html += `<div class="response-details">`
+        
+        if (analysis.traffic && analysis.traffic !== 'Traffic data processed') {
+          html += `<div class="detail-section">
+            <span class="detail-icon">🚗</span>
+            <div class="detail-content">
+              <strong>Traffic Impact</strong>
+              <p>${analysis.traffic}</p>
+            </div>
+          </div>`
+        }
+        
+        if (analysis.air_quality && analysis.air_quality !== 'AQI data processed') {
+          html += `<div class="detail-section">
+            <span class="detail-icon">🌬️</span>
+            <div class="detail-content">
+              <strong>Air Quality</strong>
+              <p>${analysis.air_quality}</p>
+            </div>
+          </div>`
+        }
+        
+        if (analysis.economic && analysis.economic !== 'Economic impact requires further analysis') {
+          html += `<div class="detail-section">
+            <span class="detail-icon">💰</span>
+            <div class="detail-content">
+              <strong>Economic Impact</strong>
+              <p>${analysis.economic}</p>
+            </div>
+          </div>`
+        }
+        
+        html += `</div>`
       }
 
-      if (explanation.length) {
-        html += '<p class="section-title"><strong>Interventions:</strong></p><ol>' +
-          explanation.map(step => `<li><strong>${step.title}:</strong> ${step.detail}</li>`).join('') +
-          '</ol>'
+      // Show recommendations if available
+      if (brainInsights && brainInsights.detailedAnalysis && brainInsights.detailedAnalysis.recommendations) {
+        const recs = brainInsights.detailedAnalysis.recommendations
+        if (recs.length > 0) {
+          html += `<div class="response-recommendations">
+            <h4>Recommendations</h4>
+            <ul>`
+          recs.slice(0, 3).forEach(rec => {
+            html += `<li>${rec}</li>`
+          })
+          html += `</ul></div>`
+        }
       }
 
-      if (deepFacts.length) {
-        html += '<p class="section-title"><strong>Historical context:</strong></p><ul>' +
-          deepFacts.map(f => `<li>${f.detail}</li>`).join('') +
-          '</ul>'
+      // Fallback to old narrative format if no brain insights
+      if (!brainInsights && narrative.length > 0) {
+        html += `<div class="response-narrative">
+          <ul>`
+        narrative.forEach(line => {
+          html += `<li>${line}</li>`
+        })
+        html += `</ul></div>`
       }
 
-      if (dialogue.length) {
-        html += '<p class="section-title"><strong>Agent chain:</strong></p><ul>' +
-          dialogue.map(line => `<li>${line}</li>`).join('') +
-          '</ul>'
+      // Follow-up suggestions
+      if (brainInsights && brainInsights.followUpSuggestions && brainInsights.followUpSuggestions.length > 0) {
+        html += `<div class="response-followup">
+          <p class="followup-label">You might also want to ask:</p>
+          <div class="followup-chips">`
+        brainInsights.followUpSuggestions.slice(0, 2).forEach(q => {
+          html += `<span class="followup-chip">${q}</span>`
+        })
+        html += `</div></div>`
       }
+
+      html += `</div>`
 
       setSummaryHtml(html)
 
