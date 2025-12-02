@@ -574,11 +574,28 @@ function Demo() {
     }
   }, [loading])
 
+  // Helper function for fetch with timeout and retry
+  const fetchWithRetry = async (url, options = {}, retries = 3, timeout = 30000) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeout)
+        const resp = await fetch(url, { ...options, signal: controller.signal })
+        clearTimeout(timeoutId)
+        return resp
+      } catch (err) {
+        if (i === retries - 1) throw err
+        // Wait before retry (backend might be waking up)
+        await new Promise(r => setTimeout(r, 2000))
+      }
+    }
+  }
+
   // Fetch live route
   const fetchLiveRoute = async () => {
     if (!mapRef.current) return
     try {
-      const resp = await fetch(`${API_BASE}/live/route`)
+      const resp = await fetchWithRetry(`${API_BASE}/live/route`)
       if (!resp.ok) throw new Error('Route API failed')
       const geojson = await resp.json()
       
@@ -604,7 +621,7 @@ function Demo() {
   // Fetch live AQI
   const fetchLiveAQI = async () => {
     try {
-      const resp = await fetch(`${API_BASE}/live/aqi?lat=28.62&lon=77.35`)
+      const resp = await fetchWithRetry(`${API_BASE}/live/aqi?lat=28.62&lon=77.35`)
       if (!resp.ok) throw new Error('AQI API failed')
       const data = await resp.json()
       
@@ -701,7 +718,7 @@ function Demo() {
     setErrorMessage('')
 
     try {
-      const response = await fetch(`${API_BASE}/chat`, {
+      const response = await fetchWithRetry(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -715,7 +732,7 @@ function Demo() {
             parameters: {}
           }
         })
-      })
+      }, 3, 60000) // 60 second timeout for chat
 
       if (!response.ok) {
         const text = await response.text()
