@@ -592,6 +592,7 @@ function App() {
   const skipLoader = location.state?.skipLoader || false
   const [loading, setLoading] = useState(!skipLoader)
   const [showJoinForm, setShowJoinForm] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const containerRef = useRef(null)
   
   const { scrollYProgress } = useScroll()
@@ -601,6 +602,23 @@ function App() {
   useEffect(() => {
     document.title = 'OVERHAUL | Home'
   }, [])
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location])
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileMenuOpen])
 
   return (
     <>
@@ -631,6 +649,18 @@ function App() {
               <Link to="/contact" state={{ skipLoader: false }}>CONTACT</Link>
               <Link to="/support" state={{ skipLoader: false }} className="nav-link-special">SUPPORT US</Link>
             </div>
+            
+            {/* Mobile Menu Button */}
+            <button 
+              className={`mobile-menu-btn ${mobileMenuOpen ? 'open' : ''}`}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+            </button>
+            
             <MagneticButton 
               className="nav-cta" 
               onClick={() => {
@@ -646,6 +676,63 @@ function App() {
               JOIN US
             </MagneticButton>
           </nav>
+
+          {/* Mobile Drawer Menu */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <>
+                <motion.div 
+                  className="mobile-drawer-overlay"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+                <motion.div 
+                  className="mobile-drawer"
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                >
+                  <div className="mobile-drawer-header">
+                    <span className="mobile-drawer-title">MENU</span>
+                    <button 
+                      className="mobile-drawer-close"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="mobile-drawer-links">
+                    <a href="#about" onClick={() => setMobileMenuOpen(false)}>ABOUT</a>
+                    <a href="#features" onClick={() => setMobileMenuOpen(false)}>FEATURES</a>
+                    <a href="#journey" onClick={() => setMobileMenuOpen(false)}>ROADMAP</a>
+                    <Link to="/contact" state={{ skipLoader: false }} onClick={() => setMobileMenuOpen(false)}>CONTACT</Link>
+                    <Link to="/support" state={{ skipLoader: false }} className="mobile-drawer-special" onClick={() => setMobileMenuOpen(false)}>SUPPORT US</Link>
+                  </div>
+                  <div className="mobile-drawer-cta">
+                    <button 
+                      className="mobile-join-btn"
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        document.getElementById('join-us-buttons')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        setTimeout(() => {
+                          setShowJoinForm(true)
+                          setTimeout(() => {
+                            document.getElementById('join-form-dropdown')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }, 600)
+                        }, 800)
+                      }}
+                    >
+                      JOIN US →
+                    </button>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
           <div className="hero-content">
             <motion.div 

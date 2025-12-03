@@ -43,6 +43,17 @@ except Exception as e:
     UNIFIED_BRAIN_AVAILABLE = False
     print(f"⚠ Unified Brain not available: {e}")
 
+# Import YOUR Custom Traffic God LLM (NO external APIs!)
+try:
+    from new_traffic_god.simple_llm import TrafficGodLLM
+    TRAFFIC_GOD_LLM = TrafficGodLLM()
+    TRAFFIC_GOD_LLM_AVAILABLE = True
+    print("✓ Traffic God LLM loaded (YOUR custom model, NO external APIs)")
+except Exception as e:
+    TRAFFIC_GOD_LLM = None
+    TRAFFIC_GOD_LLM_AVAILABLE = False
+    print(f"⚠ Traffic God LLM not available: {e}")
+
 # Initialize Agents
 aqi_agent = AQIAgent()
 
@@ -1714,6 +1725,54 @@ class TrafficGodPerceptionRequest(BaseModel):
     video_path: str
     output_csv: Optional[str] = None
     dry_run: bool = False
+
+
+class TrafficGodLLMRequest(BaseModel):
+    """Request for YOUR custom Traffic God LLM (NO external APIs!)"""
+    message: str
+    temperature: float = 0.7
+
+
+@app.post("/traffic-god-llm")
+async def traffic_god_llm_endpoint(req: TrafficGodLLMRequest):
+    """
+    🚦 YOUR CUSTOM TRAFFIC GOD LLM
+    
+    This endpoint uses YOUR trained LLM - NO Gemini, NO OpenAI, NO external APIs!
+    
+    Ask about:
+    - Traffic conditions in Noida/NCR
+    - Route planning
+    - AQI and air quality
+    - Peak hours
+    - Road conditions
+    """
+    if not TRAFFIC_GOD_LLM_AVAILABLE or TRAFFIC_GOD_LLM is None:
+        raise HTTPException(status_code=503, detail="Traffic God LLM not loaded")
+    
+    try:
+        response = TRAFFIC_GOD_LLM.chat(req.message, temperature=req.temperature)
+        return {
+            "status": "success",
+            "model": "Traffic God LLM (Custom)",
+            "api_used": "NONE - 100% your own model",
+            "response": response,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Generation error: {str(e)}")
+
+
+@app.get("/traffic-god-llm/status")
+async def traffic_god_llm_status():
+    """Check if your custom LLM is loaded"""
+    return {
+        "available": TRAFFIC_GOD_LLM_AVAILABLE,
+        "model_type": "Custom Transformer (YOUR model)",
+        "external_api": "NONE",
+        "device": TRAFFIC_GOD_LLM.device if TRAFFIC_GOD_LLM else "N/A"
+    }
+
 
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):

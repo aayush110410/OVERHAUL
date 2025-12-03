@@ -812,6 +812,7 @@ function Demo() {
       const explanation = Array.isArray(data.outputs?.explanation) ? data.outputs.explanation : []
       const deepFacts = Array.isArray(data.outputs?.deepFacts) ? data.outputs.deepFacts : []
       const brainInsights = data.outputs?.brainInsights || null
+      const metricsSummary = data.outputs?.metricsSummary || null
 
       let html = ''
       
@@ -821,16 +822,54 @@ function Demo() {
           <p class="response-summary">${tldr}</p>
         </div>`
 
+      // Show metrics summary cards if available
+      if (metricsSummary) {
+        html += `<div class="response-metrics-summary">
+          <div class="metrics-grid">`
+        
+        if (metricsSummary.aqi) {
+          const aqiChange = metricsSummary.aqi.change || '0%'
+          const isImprovement = aqiChange.includes('-')
+          html += `<div class="metric-card ${isImprovement ? 'positive' : ''}">
+            <span class="metric-icon">🌬️</span>
+            <div class="metric-info">
+              <span class="metric-label">Air Quality</span>
+              <span class="metric-value">${metricsSummary.aqi.current?.toFixed(0) || '--'} → ${metricsSummary.aqi.projected?.toFixed(0) || '--'}</span>
+              <span class="metric-change ${isImprovement ? 'positive' : ''}">${aqiChange}</span>
+            </div>
+          </div>`
+        }
+        
+        if (metricsSummary.traffic) {
+          const trafficChange = metricsSummary.traffic.change || '0%'
+          const isImprovement = trafficChange.includes('+')
+          html += `<div class="metric-card ${isImprovement ? 'positive' : ''}">
+            <span class="metric-icon">🚗</span>
+            <div class="metric-info">
+              <span class="metric-label">Traffic Flow</span>
+              <span class="metric-value">${trafficChange}</span>
+              <span class="metric-change ${isImprovement ? 'positive' : ''}">${isImprovement ? 'Improved' : 'Impact'}</span>
+            </div>
+          </div>`
+        }
+        
+        html += `</div></div>`
+      }
+
       // Show brain insights if available (key findings)
       if (brainInsights && brainInsights.keyFindings && brainInsights.keyFindings.length > 0) {
         html += `<div class="response-findings">
-          <h4>Key Findings</h4>
+          <h4>📊 Key Findings</h4>
           <ul>`
         brainInsights.keyFindings.slice(0, 4).forEach(f => {
           const confidence = f.confidence ? Math.round(f.confidence * 100) : null
+          const source = f.source || ''
           html += `<li>
             <span class="finding-text">${f.finding}</span>
-            ${confidence ? `<span class="finding-confidence">${confidence}%</span>` : ''}
+            <div class="finding-meta">
+              ${confidence ? `<span class="finding-confidence">${confidence}% confidence</span>` : ''}
+              ${source ? `<span class="finding-source">${source}</span>` : ''}
+            </div>
           </li>`
         })
         html += `</ul></div>`
@@ -839,34 +878,36 @@ function Demo() {
       // Show detailed analysis sections if available
       if (brainInsights && brainInsights.detailedAnalysis) {
         const analysis = brainInsights.detailedAnalysis
-        html += `<div class="response-details">`
+        html += `<div class="response-details">
+          <h4>📋 Detailed Analysis</h4>`
         
-        if (analysis.traffic && analysis.traffic !== 'Traffic data processed') {
-          html += `<div class="detail-section">
-            <span class="detail-icon">🚗</span>
+        // Primary answer (most important)
+        if (analysis.primary_answer && analysis.primary_answer !== 'No specific intervention detected - showing current baselines.') {
+          html += `<div class="detail-section detail-primary">
             <div class="detail-content">
-              <strong>Traffic Impact</strong>
-              <p>${analysis.traffic}</p>
+              <p>${analysis.primary_answer}</p>
             </div>
           </div>`
         }
         
-        if (analysis.air_quality && analysis.air_quality !== 'AQI data processed') {
+        // Supporting evidence
+        if (analysis.supporting_evidence) {
           html += `<div class="detail-section">
-            <span class="detail-icon">🌬️</span>
+            <span class="detail-icon">📈</span>
             <div class="detail-content">
-              <strong>Air Quality</strong>
-              <p>${analysis.air_quality}</p>
+              <strong>Data Sources</strong>
+              <p>${analysis.supporting_evidence}</p>
             </div>
           </div>`
         }
         
-        if (analysis.economic && analysis.economic !== 'Economic impact requires further analysis') {
-          html += `<div class="detail-section">
-            <span class="detail-icon">💰</span>
+        // Caveats
+        if (analysis.caveats) {
+          html += `<div class="detail-section detail-caveat">
+            <span class="detail-icon">⚠️</span>
             <div class="detail-content">
-              <strong>Economic Impact</strong>
-              <p>${analysis.economic}</p>
+              <strong>Assumptions</strong>
+              <p>${analysis.caveats}</p>
             </div>
           </div>`
         }
@@ -874,18 +915,68 @@ function Demo() {
         html += `</div>`
       }
 
-      // Show recommendations if available
-      if (brainInsights && brainInsights.detailedAnalysis && brainInsights.detailedAnalysis.recommendations) {
-        const recs = brainInsights.detailedAnalysis.recommendations
-        if (recs.length > 0) {
-          html += `<div class="response-recommendations">
-            <h4>Recommendations</h4>
+      // Real world context
+      if (brainInsights && brainInsights.realWorldContext) {
+        const context = brainInsights.realWorldContext
+        html += `<div class="response-context">
+          <h4>🌍 Real-World Context</h4>`
+        
+        if (context.similar_cities && context.similar_cities.length > 0) {
+          html += `<div class="context-section">
+            <strong>Similar Cities:</strong>
+            <span class="context-cities">${context.similar_cities.join(', ')}</span>
+          </div>`
+        }
+        
+        if (context.lessons && context.lessons.length > 0) {
+          html += `<div class="context-section">
+            <strong>Key Lessons:</strong>
             <ul>`
-          recs.slice(0, 3).forEach(rec => {
-            html += `<li>${rec}</li>`
+          context.lessons.forEach(lesson => {
+            html += `<li>${lesson}</li>`
           })
           html += `</ul></div>`
         }
+        
+        html += `</div>`
+      }
+
+      // Show recommendations if available
+      if (brainInsights && brainInsights.recommendations && brainInsights.recommendations.length > 0) {
+        const recs = brainInsights.recommendations
+        html += `<div class="response-recommendations">
+          <h4>💡 Recommendations</h4>
+          <ul>`
+        recs.slice(0, 4).forEach(rec => {
+          if (typeof rec === 'object') {
+            const priority = rec.priority || 'medium'
+            const timeline = rec.timeline || ''
+            html += `<li class="rec-item priority-${priority}">
+              <span class="rec-text">${rec.recommendation}</span>
+              <div class="rec-meta">
+                <span class="rec-priority">${priority}</span>
+                ${timeline ? `<span class="rec-timeline">${timeline}</span>` : ''}
+              </div>
+            </li>`
+          } else {
+            html += `<li>${rec}</li>`
+          }
+        })
+        html += `</ul></div>`
+      }
+
+      // Data transparency
+      if (brainInsights && brainInsights.dataTransparency) {
+        const transparency = brainInsights.dataTransparency
+        html += `<div class="response-transparency">
+          <div class="transparency-badge">
+            <span class="transparency-icon">✓</span>
+            <span class="transparency-text">
+              Analysis: <strong>${brainInsights.calculationType || 'physics-based'}</strong> | 
+              Confidence: <strong>${transparency.confidence_level || 'high'}</strong>
+            </span>
+          </div>
+        </div>`
       }
 
       // Fallback to old narrative format if no brain insights
@@ -1455,30 +1546,11 @@ function Demo() {
                       <button className="demo-action-btn" onClick={exportReport}>
                         📥 EXPORT REPORT
                       </button>
-                      <button className="demo-action-btn demo-copy-btn" onClick={copyManifest}>
-                        📋 COPY MANIFEST
-                      </button>
                     </div>
 
                     {/* Keyboard Shortcut Hint */}
                     <div className="demo-hint">
                       Press <kbd>⌘</kbd> + <kbd>Enter</kbd> to run analysis
-                    </div>
-                  </motion.div>
-
-                  {/* Manifest Card */}
-                  <motion.div 
-                    className="demo-card demo-manifest-card"
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4, duration: 0.6 }}
-                  >
-                    <div className="demo-card-header">
-                      <span className="demo-card-title">RUN MANIFEST</span>
-                      <span className="demo-manifest-id">{manifest?.run_id || '--'}</span>
-                    </div>
-                    <div className="demo-code-block">
-                      <pre>{manifest ? JSON.stringify(manifest, null, 2) : 'Run analysis to generate manifest'}</pre>
                     </div>
                   </motion.div>
                 </div>
