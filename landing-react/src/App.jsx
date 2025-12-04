@@ -644,7 +644,7 @@ function App() {
             <div className="nav-logo">OVERHAUL™</div>
             <div className="nav-links">
               <a href="#about">ABOUT</a>
-              <a href="#features">FEATURES</a>
+              <Link to="/features" state={{ skipLoader: false }}>FEATURES</Link>
               <a href="#journey">ROADMAP</a>
               <Link to="/contact" state={{ skipLoader: false }}>CONTACT</Link>
               <Link to="/support" state={{ skipLoader: false }} className="nav-link-special">SUPPORT US</Link>
@@ -707,7 +707,7 @@ function App() {
                   </div>
                   <div className="mobile-drawer-links">
                     <a href="#about" onClick={() => setMobileMenuOpen(false)}>ABOUT</a>
-                    <a href="#features" onClick={() => setMobileMenuOpen(false)}>FEATURES</a>
+                    <Link to="/features" state={{ skipLoader: false }} onClick={() => setMobileMenuOpen(false)}>FEATURES</Link>
                     <a href="#journey" onClick={() => setMobileMenuOpen(false)}>ROADMAP</a>
                     <Link to="/contact" state={{ skipLoader: false }} onClick={() => setMobileMenuOpen(false)}>CONTACT</Link>
                     <Link to="/support" state={{ skipLoader: false }} className="mobile-drawer-special" onClick={() => setMobileMenuOpen(false)}>SUPPORT US</Link>
@@ -1419,10 +1419,10 @@ function App() {
             <div className="footer-links-grid">
               <div className="footer-col">
                 <h4>PLATFORM</h4>
-                <a href="#features">Features</a>
+                <Link to="/features" state={{ skipLoader: false }}>Features</Link>
+                <Link to="/docs" state={{ skipLoader: false }}>Documentation</Link>
                 <Link to="/support" state={{ skipLoader: false }}>Join The Revolution</Link>
                 <a href="#journey">Roadmap</a>
-                <a href="#">Changelog</a>
               </div>
               <div className="footer-col">
                 <h4>COMPANY</h4>

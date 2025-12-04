@@ -6,6 +6,8 @@ import App from './App.jsx'
 import Demo from './Demo.jsx'
 import Contact from './Contact.jsx'
 import Support from './Support.jsx'
+import Features from './Features.jsx'
+import Docs from './Docs.jsx'
 import { PrivacyPolicy, TermsConditions, RefundsPolicy, ShippingPolicy } from './Policies.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -16,6 +18,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/demo" element={<Demo />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/support" element={<Support />} />
+        <Route path="/features" element={<Features />} />
+        <Route path="/docs" element={<Docs />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsConditions />} />
         <Route path="/refunds" element={<RefundsPolicy />} />
