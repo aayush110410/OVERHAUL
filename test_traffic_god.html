@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚦 Traffic God LLM - Test Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00ff88, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #888;
+            font-size: 1rem;
+        }
+        .badge {
+            display: inline-block;
+            background: #00ff8820;
+            color: #00ff88;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        .chat-container {
+            background: #1e2a3a;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            background: #151f2b;
+        }
+        .message {
+            margin-bottom: 15px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .user-message {
+            text-align: right;
+        }
+        .user-message .bubble {
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+            color: #000;
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 18px 18px 5px 18px;
+            max-width: 70%;
+        }
+        .bot-message .bubble {
+            background: #2a3a4a;
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 18px 18px 18px 5px;
+            max-width: 70%;
+        }
+        .label {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 25px;
+            background: #151f2b;
+            color: #fff;
+            font-size: 1rem;
+        }
+        input[type="text"]:focus {
+            outline: 2px solid #00d4ff;
+        }
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .quick-questions {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .quick-btn {
+            padding: 10px 15px;
+            background: #2a3a4a;
+            border: 1px solid #3a4a5a;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quick-btn:hover {
+            background: #00d4ff20;
+            border-color: #00d4ff;
+        }
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 10px;
+            background: #151f2b;
+        }
+        .status.online {
+            border-left: 4px solid #00ff88;
+        }
+        .status.offline {
+            border-left: 4px solid #ff4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚦 Traffic God LLM</h1>
+            <p class="subtitle">Your Custom AI for Noida/NCR Traffic</p>
+            <span class="badge">✨ NO External APIs - 100% Your Model</span>
+        </header>
+
+        <div class="chat-container">
+            <div id="messages">
+                <div class="message bot-message">
+                    <div class="label">Traffic God</div>
+                    <div class="bubble">
+                        Hello! I'm your custom Traffic God LLM. Ask me about traffic, routes, or air quality in Noida/NCR!
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" id="userInput" placeholder="Ask about traffic in Noida..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()" id="sendBtn">Send</button>
+            </div>
+        </div>
+
+        <div class="quick-questions">
+            <button class="quick-btn" onclick="quickAsk('What is traffic like at Sector 18?')">🚗 Sector 18 Traffic</button>
+            <button class="quick-btn" onclick="quickAsk('Best route from Noida to Delhi?')">🗺️ Route to Delhi</button>
+            <button class="quick-btn" onclick="quickAsk('What is the AQI in Indirapuram?')">💨 AQI Check</button>
+            <button class="quick-btn" onclick="quickAsk('When are peak traffic hours?')">⏰ Peak Hours</button>
+            <button class="quick-btn" onclick="quickAsk('Is NH24 congested?')">🛣️ NH24 Status</button>
+        </div>
+
+        <div class="status" id="status">
+            Checking server status...
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        
+        async function checkStatus() {
+            const statusDiv = document.getElementById('status');
+            try {
+                const resp = await fetch(`${API_URL}/traffic-god-llm/status`);
+                const data = await resp.json();
+                if (data.available) {
+                    statusDiv.className = 'status online';
+                    statusDiv.innerHTML = `✅ Model Online | Device: ${data.device} | API: ${data.external_api}`;
+                } else {
+                    statusDiv.className = 'status offline';
+                    statusDiv.innerHTML = '❌ Model Offline';
+                }
+            } catch (e) {
+                statusDiv.className = 'status offline';
+                statusDiv.innerHTML = '❌ Server not running. Start with: python app.py';
+            }
+        }
+
+        function addMessage(text, isUser) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.innerHTML = `
+                <div class="label">${isUser ? 'You' : 'Traffic God'}</div>
+                <div class="bubble">${text}</div>
+            `;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addMessage(message, true);
+            input.value = '';
+            
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            try {
+                const resp = await fetch(`${API_URL}/traffic-god-llm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, temperature: 0.7 })
+                });
+                const data = await resp.json();
+                addMessage(data.response || data.detail || 'No response', false);
+            } catch (e) {
+                addMessage('Error: Server not running. Start with: python app.py', false);
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Send';
+        }
+
+        function quickAsk(question) {
+            document.getElementById('userInput').value = question;
+            sendMessage();
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        // Check status on load
+        checkStatus();
+        setInterval(checkStatus, 10000);
+    </script>
+</body>
+</html>

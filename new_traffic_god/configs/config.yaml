@@ -1,0 +1,128 @@
+# New Traffic God - Configuration
+# ================================
+# Master configuration file for the Traffic Foundation Model
+
+# Model Architecture
+model:
+  model_size: "base"
+  d_model: 768
+  n_heads: 12
+  n_layers: 12
+  d_ff: 3072
+  vocab_size: 50000
+  max_seq_len: 2048
+  dropout: 0.1
+
+# Training Configuration
+training:
+  batch_size: 32
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  max_epochs: 100
+  warmup_steps: 10000
+  gradient_clip: 1.0
+  optimizer: "adamw"
+  scheduler: "cosine"
+  fp16: true
+  distributed: false
+  save_steps: 1000
+  eval_steps: 500
+
+# RLHF Configuration
+rlhf:
+  ppo_epochs: 4
+  clip_range: 0.2
+  value_coef: 0.5
+  entropy_coef: 0.01
+  kl_coef: 0.1
+  target_kl: 0.02
+  max_new_tokens: 512
+  temperature: 0.7
+
+# Inference Configuration
+inference:
+  max_length: 1024
+  temperature: 0.7
+  top_k: 50
+  top_p: 0.9
+  do_sample: true
+  use_cache: true
+  device: "cuda"
+  dtype: "float16"
+
+# RAG Configuration
+rag:
+  top_k: 5
+  chunk_size: 512
+  chunk_overlap: 50
+  embedding_dim: 768
+  index_type: "faiss"
+  use_bm25: true
+  bm25_weight: 0.3
+  dense_weight: 0.7
+
+# World Model Configuration
+world_model:
+  grid_size: 100
+  cell_size: 0.1
+  dt: 0.1
+  max_steps: 3600
+  state_dim: 256
+  action_dim: 64
+  hidden_dim: 512
+
+# Data Configuration
+data:
+  data_dir: "./data"
+  cache_dir: "./cache"
+  checkpoint_dir: "./checkpoints"
+  region: "noida"
+  include_regions:
+    - "noida"
+    - "indirapuram"
+    - "greater_noida"
+    - "ghaziabad"
+    - "delhi_ncr"
+  use_osm: true
+  use_historical: true
+  normalize: true
+  augment: true
+
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4
+  rate_limit: 100
+  require_auth: false
+  allow_origins:
+    - "*"
+
+# Noida-Specific Settings
+noida:
+  morning_peak_start: 8
+  morning_peak_end: 11
+  evening_peak_start: 17
+  evening_peak_end: 21
+  peak_multiplier: 2.5
+  weekend_multiplier: 0.6
+  
+  major_corridors:
+    - "DND Flyway"
+    - "Noida-Greater Noida Expressway"
+    - "NH-24"
+    - "Sector 62 - Ghaziabad Link"
+    - "Film City Road"
+  
+  speed_limits:
+    expressway: 100
+    main_road: 60
+    sector_road: 40
+    residential: 30
+  
+  aqi_thresholds:
+    good: 50
+    moderate: 100
+    unhealthy: 150
+    very_unhealthy: 200
+    hazardous: 300

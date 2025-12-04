@@ -2775,48 +2775,314 @@
   color: rgba(204, 255, 0, 0.4);
 }
 
-/* Demo Responsive */
+/* Demo Responsive - Tablet */
 @media (max-width: 1200px) {
   .demo-grid {
     grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
   }
   
+  /* Control panel (chat input) moves to TOP on tablet/mobile */
   .demo-right {
+    order: -1;
     position: relative;
     top: 0;
+    width: 100%;
+    max-width: none;
+  }
+  
+  .demo-left {
+    order: 1;
+    width: 100%;
+  }
+  
+  .demo-control-panel {
+    position: relative;
+    top: 0;
+    max-height: none;
   }
   
   .demo-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  
+  .demo-map {
+    height: 350px;
+  }
 }
 
+/* Demo Responsive - Mobile */
 @media (max-width: 768px) {
   .demo-nav {
-    padding: 15px 20px;
+    padding: 12px 15px;
   }
   
   .demo-nav-center {
     display: none;
   }
   
-  .demo-container {
-    padding: 80px 20px 20px;
+  .demo-nav-left .demo-logo {
+    font-size: 1.1rem;
   }
   
-  .demo-stats-grid {
-    grid-template-columns: 1fr;
+  .demo-nav-right {
+    gap: 8px;
+  }
+  
+  .demo-nav-btn {
+    padding: 6px 12px;
+    font-size: 0.6rem;
+  }
+  
+  .demo-container {
+    padding: 70px 12px 80px;
+    gap: 15px;
+  }
+  
+  .demo-grid {
+    gap: 15px;
+  }
+  
+  /* Control Panel - Compact on mobile */
+  .demo-control-panel {
+    padding: 15px;
+    margin-bottom: 10px;
+  }
+  
+  .demo-panel-header h3 {
+    font-size: 0.85rem;
+  }
+  
+  .demo-input-group label {
+    font-size: 0.65rem;
+    margin-bottom: 6px;
+  }
+  
+  .demo-textarea {
+    min-height: 80px;
+    padding: 10px;
+    font-size: 0.75rem;
+  }
+  
+  .demo-mode-toggle {
+    padding: 3px;
+  }
+  
+  .demo-mode-btn {
+    padding: 8px 16px;
+    font-size: 0.65rem;
+  }
+  
+  .demo-run-btn {
+    padding: 12px;
+    font-size: 0.75rem;
+  }
+  
+  .demo-export-btn {
+    padding: 8px;
+    font-size: 0.65rem;
+  }
+  
+  /* Hero - Compact */
+  .demo-hero {
+    padding: 20px 15px;
+    margin-bottom: 10px;
   }
   
   .demo-hero-title {
-    font-size: 3rem;
+    font-size: 2rem;
   }
   
+  .demo-hero-subtitle {
+    font-size: 0.7rem;
+  }
+  
+  /* Map - Reduced height */
+  .demo-map {
+    height: 280px;
+  }
+  
+  .demo-card-header h3 {
+    font-size: 0.75rem;
+  }
+  
+  /* Stats Grid - Single column */
+  .demo-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .demo-stat-card {
+    padding: 12px;
+  }
+  
+  .demo-stat-value {
+    font-size: 1.3rem;
+  }
+  
+  .demo-stat-label {
+    font-size: 0.55rem;
+  }
+  
+  .demo-stat-change {
+    font-size: 0.55rem;
+    padding: 2px 6px;
+  }
+  
+  /* AI Analysis - Compact */
+  .demo-analysis-box {
+    padding: 15px;
+  }
+  
+  .demo-analysis-header {
+    margin-bottom: 10px;
+  }
+  
+  .demo-analysis-badge {
+    font-size: 0.55rem;
+    padding: 3px 8px;
+  }
+  
+  .demo-analysis-content {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+  
+  .demo-typing-indicator span {
+    width: 6px;
+    height: 6px;
+  }
+  
+  /* Charts - Full width */
+  .demo-charts-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .demo-chart-container {
+    height: 200px;
+  }
+  
+  /* Recommendations - Compact */
+  .demo-recommendations-grid {
+    gap: 10px;
+  }
+  
+  .demo-recommendation-card {
+    padding: 12px;
+  }
+  
+  .demo-rec-header {
+    margin-bottom: 8px;
+  }
+  
+  .demo-rec-priority {
+    font-size: 0.5rem;
+    padding: 2px 6px;
+  }
+  
+  .demo-rec-title {
+    font-size: 0.85rem;
+  }
+  
+  .demo-rec-description {
+    font-size: 0.7rem;
+    margin-bottom: 8px;
+  }
+  
+  .demo-rec-metric {
+    font-size: 0.6rem;
+    padding: 4px 8px;
+  }
+  
+  /* Footer - Compact */
   .demo-footer {
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     text-align: center;
-    padding: 15px 20px;
+    padding: 12px 15px;
+    font-size: 0.55rem;
+  }
+}
+
+/* Demo Responsive - Small Mobile */
+@media (max-width: 480px) {
+  .demo-container {
+    padding: 65px 10px 75px;
+  }
+  
+  .demo-nav {
+    padding: 10px 12px;
+  }
+  
+  .demo-nav-btn {
+    padding: 5px 10px;
+    font-size: 0.55rem;
+  }
+  
+  .demo-hero-title {
+    font-size: 1.6rem;
+  }
+  
+  .demo-hero-subtitle {
+    font-size: 0.6rem;
+  }
+  
+  .demo-textarea {
+    min-height: 70px;
+    font-size: 0.7rem;
+  }
+  
+  .demo-mode-btn {
+    padding: 6px 12px;
+    font-size: 0.6rem;
+  }
+  
+  .demo-run-btn {
+    padding: 10px;
+    font-size: 0.7rem;
+  }
+  
+  .demo-map {
+    height: 220px;
+  }
+  
+  .demo-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  
+  .demo-stat-card {
+    padding: 10px;
+  }
+  
+  .demo-stat-value {
+    font-size: 1.1rem;
+  }
+  
+  .demo-stat-label {
+    font-size: 0.5rem;
+  }
+  
+  .demo-chart-container {
+    height: 180px;
+  }
+  
+  .demo-analysis-content {
+    font-size: 0.7rem;
+  }
+  
+  .demo-card-header h3 {
+    font-size: 0.7rem;
+  }
+  
+  .demo-rec-title {
+    font-size: 0.8rem;
+  }
+  
+  .demo-rec-description {
+    font-size: 0.65rem;
   }
 }
 
