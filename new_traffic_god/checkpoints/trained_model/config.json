@@ -1,1 +1,0 @@
-{"vocab_size": 596, "hidden_size": 384, "num_hidden_layers": 6, "num_attention_heads": 6, "intermediate_size": 1024, "num_experts": 4, "max_position_embeddings": 512}
