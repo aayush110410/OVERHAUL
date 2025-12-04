@@ -2778,23 +2778,26 @@
 /* Demo Responsive - Tablet */
 @media (max-width: 1200px) {
   .demo-grid {
-    grid-template-columns: 1fr;
     display: flex;
     flex-direction: column;
   }
   
-  /* Control panel (chat input) moves to TOP on tablet/mobile */
+  .demo-left {
+    display: contents;
+  }
+  
+  /* Hero title first */
+  .demo-hero {
+    order: 1;
+  }
+  
+  /* Control panel (chat input) right after hero */
   .demo-right {
-    order: -1;
+    order: 2;
     position: relative;
     top: 0;
     width: 100%;
     max-width: none;
-  }
-  
-  .demo-left {
-    order: 1;
-    width: 100%;
   }
   
   .demo-control-panel {
@@ -2803,8 +2806,30 @@
     max-height: none;
   }
   
+  /* Map after control panel */
+  .demo-map-card {
+    order: 3;
+  }
+  
+  /* Stats grid */
   .demo-stats-grid {
+    order: 4;
     grid-template-columns: repeat(2, 1fr);
+  }
+  
+  /* AI Analysis section */
+  .demo-left > .demo-card:nth-of-type(3) {
+    order: 5;
+  }
+  
+  /* Charts grid */
+  .demo-charts-grid {
+    order: 6;
+  }
+  
+  /* Recommendations */
+  .demo-left > .demo-card:last-of-type {
+    order: 7;
   }
   
   .demo-map {
@@ -2850,19 +2875,31 @@
     margin-bottom: 10px;
   }
   
-  .demo-panel-header h3 {
+  .demo-panel-header {
+    margin-bottom: 12px;
+  }
+  
+  .demo-panel-title {
     font-size: 0.85rem;
   }
   
-  .demo-input-group label {
-    font-size: 0.65rem;
-    margin-bottom: 6px;
+  .demo-panel-subtitle {
+    font-size: 0.6rem;
+  }
+  
+  .demo-input-group {
+    margin-bottom: 12px;
+  }
+  
+  .demo-input-label {
+    font-size: 0.6rem;
+    margin-bottom: 5px;
   }
   
   .demo-textarea {
-    min-height: 80px;
+    min-height: 70px;
     padding: 10px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
   
   .demo-mode-toggle {
@@ -2876,26 +2913,49 @@
   
   .demo-run-btn {
     padding: 12px;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
   
-  .demo-export-btn {
+  .demo-actions {
+    margin-top: 10px;
+  }
+  
+  .demo-action-btn {
     padding: 8px;
     font-size: 0.65rem;
   }
   
-  /* Hero - Compact */
+  .demo-hint {
+    font-size: 0.55rem;
+    margin-top: 8px;
+    padding: 6px;
+  }
+  
+  /* Hero - Big and Clear */
   .demo-hero {
-    padding: 20px 15px;
-    margin-bottom: 10px;
+    padding: 25px 15px;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  
+  .demo-hero-tag {
+    justify-content: center;
+    font-size: 0.6rem;
+    margin-bottom: 12px;
   }
   
   .demo-hero-title {
-    font-size: 2rem;
+    font-size: 2.8rem;
+    line-height: 1;
+  }
+  
+  .demo-hero-title .text-outline {
+    font-size: 2.8rem;
   }
   
   .demo-hero-subtitle {
     font-size: 0.7rem;
+    margin-top: 10px;
   }
   
   /* Map - Reduced height */
@@ -2903,11 +2963,26 @@
     height: 280px;
   }
   
-  .demo-card-header h3 {
-    font-size: 0.75rem;
+  .demo-card {
+    padding: 12px;
   }
   
-  /* Stats Grid - Single column */
+  .demo-card-header {
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+  
+  .demo-card-title {
+    font-size: 0.7rem;
+  }
+  
+  .demo-card-tag,
+  .demo-card-badge {
+    font-size: 0.5rem;
+    padding: 3px 6px;
+  }
+  
+  /* Stats Grid */
   .demo-stats-grid {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
@@ -2930,18 +3005,36 @@
     padding: 2px 6px;
   }
   
-  /* AI Analysis - Compact */
-  .demo-analysis-box {
-    padding: 15px;
+  /* AI Analysis - Optimized for maximum content */
+  .demo-summary {
+    font-size: 0.8rem;
+    line-height: 1.6;
+    max-height: none;
+    overflow: visible;
   }
   
-  .demo-analysis-header {
-    margin-bottom: 10px;
+  .demo-summary p {
+    margin-bottom: 8px;
   }
   
-  .demo-analysis-badge {
-    font-size: 0.55rem;
-    padding: 3px 8px;
+  .demo-summary ul,
+  .demo-summary ol {
+    padding-left: 16px;
+    margin: 8px 0;
+  }
+  
+  .demo-summary li {
+    margin-bottom: 4px;
+  }
+  
+  .demo-live-sources {
+    margin-top: 10px;
+    gap: 4px;
+  }
+  
+  .demo-live-chip {
+    font-size: 0.5rem;
+    padding: 3px 6px;
   }
   
   .demo-analysis-content {
@@ -3009,7 +3102,7 @@
 /* Demo Responsive - Small Mobile */
 @media (max-width: 480px) {
   .demo-container {
-    padding: 65px 10px 75px;
+    padding: 65px 8px 75px;
   }
   
   .demo-nav {
@@ -3021,17 +3114,35 @@
     font-size: 0.55rem;
   }
   
+  /* Hero - Still prominent on small screens */
+  .demo-hero {
+    padding: 20px 12px;
+  }
+  
+  .demo-hero-tag {
+    font-size: 0.5rem;
+  }
+  
   .demo-hero-title {
-    font-size: 1.6rem;
+    font-size: 2.2rem;
+  }
+  
+  .demo-hero-title .text-outline {
+    font-size: 2.2rem;
   }
   
   .demo-hero-subtitle {
     font-size: 0.6rem;
   }
   
+  /* Control panel compact */
+  .demo-control-panel {
+    padding: 12px;
+  }
+  
   .demo-textarea {
-    min-height: 70px;
-    font-size: 0.7rem;
+    min-height: 60px;
+    font-size: 0.75rem;
   }
   
   .demo-mode-btn {
@@ -3041,11 +3152,15 @@
   
   .demo-run-btn {
     padding: 10px;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
   
   .demo-map {
-    height: 220px;
+    height: 200px;
+  }
+  
+  .demo-card {
+    padding: 10px;
   }
   
   .demo-stats-grid {
@@ -3065,24 +3180,31 @@
     font-size: 0.5rem;
   }
   
-  .demo-chart-container {
-    height: 180px;
+  /* AI Summary - Maximum content */
+  .demo-summary {
+    font-size: 0.75rem;
+    line-height: 1.5;
   }
   
-  .demo-analysis-content {
-    font-size: 0.7rem;
+  .demo-chart-container,
+  .demo-chart {
+    height: 160px;
   }
   
-  .demo-card-header h3 {
-    font-size: 0.7rem;
+  .demo-card-title {
+    font-size: 0.6rem;
   }
   
   .demo-rec-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
   
   .demo-rec-description {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
+  }
+  
+  .demo-recommendations {
+    gap: 8px;
   }
 }
 
