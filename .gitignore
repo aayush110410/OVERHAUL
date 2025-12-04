@@ -43,3 +43,4 @@ storage/
 .pytest_cache/
 .coverage
 htmlcov/
+new_traffic_god/
