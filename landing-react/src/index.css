@@ -7,6 +7,12 @@
   --orange: #FF4D00;
   --pink: #FF0080;
   --blue: #0066FF;
+  
+  /* Smooth easing curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -19,6 +25,9 @@ html {
   scroll-behavior: smooth;
   font-size: 16px;
   background-color: #0a0a0a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -34,6 +43,19 @@ body {
   overflow-x: hidden;
   cursor: none;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* GPU acceleration for smooth animations */
+* {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Smooth scrolling for all scrollable elements */
+* {
+  scroll-behavior: smooth;
 }
 
 a, button {
@@ -46,7 +68,7 @@ a, button {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -55,11 +77,18 @@ a, button {
 
 ::-webkit-scrollbar-thumb {
   background: var(--lime);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--orange);
 }
 
 a {
   color: inherit;
   text-decoration: none;
+  transition: color 0.3s var(--ease-smooth), opacity 0.3s var(--ease-smooth);
 }
 
 button {
@@ -67,4 +96,5 @@ button {
   font-family: inherit;
   border: none;
   background: none;
+  transition: all 0.3s var(--ease-smooth);
 }

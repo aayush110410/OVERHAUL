@@ -3,6 +3,13 @@
    ============================================ */
 
 /* ============================================
+   GLOBAL SMOOTH TRANSITIONS
+   ============================================ */
+*, *::before, *::after {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================
    CUSTOM CURSOR - LAG FREE
    ============================================ */
 .cursor {
@@ -17,7 +24,11 @@
   z-index: 99999;
   will-change: transform;
   box-shadow: 0 0 20px rgba(255, 77, 0, 0.5);
-  transition: width 0.2s ease, height 0.2s ease, background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              height 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              background 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              border 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cursor.hovering {
@@ -261,7 +272,8 @@
   border-radius: 8px;
   cursor: pointer;
   z-index: 1001;
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: border-color;
 }
 
 .mobile-menu-btn:hover {
@@ -273,7 +285,7 @@
   width: 20px;
   height: 2px;
   background: white;
-  transition: all 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mobile-menu-btn.open .hamburger-line:nth-child(1) {
@@ -340,7 +352,8 @@
   color: white;
   font-size: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: background, transform;
 }
 
 .mobile-drawer-close:hover {
@@ -364,7 +377,7 @@
   letter-spacing: 2px;
   padding: 18px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.3s ease;
+  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1), padding-left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -374,7 +387,7 @@
   content: '→';
   opacity: 0;
   transform: translateX(-10px);
-  transition: all 0.3s ease;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mobile-drawer-links a:hover {
@@ -409,12 +422,13 @@
   font-weight: 600;
   letter-spacing: 2px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
 }
 
 .mobile-join-btn:hover {
   transform: scale(1.02);
-  box-shadow: 0 5px 20px rgba(204, 255, 0, 0.4);
+  box-shadow: 0 10px 30px rgba(204, 255, 0, 0.4);
 }
 
 /* ============================================
@@ -1116,12 +1130,17 @@
   margin-bottom: 30px;
 }
 
-.cta-title {
+.cta .cta-title {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(60px, 10vw, 140px);
+  font-size: clamp(60px, 10vw, 140px) !important;
   line-height: 1;
   margin: 0 0 30px 0;
   color: var(--white);
+}
+
+.cta .cta-title .text-outline {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--orange);
 }
 
 .cta-desc {
@@ -2775,7 +2794,7 @@
   color: rgba(204, 255, 0, 0.4);
 }
 
-/* Demo Responsive - Tablet */
+/* Demo Responsive - Tablet & Mobile */
 @media (max-width: 1200px) {
   .demo-grid {
     display: flex;
@@ -2786,12 +2805,12 @@
     display: contents;
   }
   
-  /* Hero title first */
+  /* 1. Hero title first */
   .demo-hero {
     order: 1;
   }
   
-  /* Control panel (chat input) right after hero */
+  /* 2. Control panel (chat input) right after hero */
   .demo-right {
     order: 2;
     position: relative;
@@ -2806,28 +2825,28 @@
     max-height: none;
   }
   
-  /* Map after control panel */
-  .demo-map-card {
+  /* 3. AI Analysis section (response) - right after chat input */
+  .demo-ai-analysis {
     order: 3;
   }
   
-  /* Stats grid */
-  .demo-stats-grid {
+  /* 4. Map after AI response */
+  .demo-map-card {
     order: 4;
+  }
+  
+  /* 5. Stats grid */
+  .demo-stats-grid {
+    order: 5;
     grid-template-columns: repeat(2, 1fr);
   }
   
-  /* AI Analysis section */
-  .demo-left > .demo-card:nth-of-type(3) {
-    order: 5;
-  }
-  
-  /* Charts grid */
+  /* 6. Charts grid */
   .demo-charts-grid {
     order: 6;
   }
   
-  /* Recommendations */
+  /* 7. Recommendations */
   .demo-left > .demo-card:last-of-type {
     order: 7;
   }
@@ -2933,29 +2952,31 @@
   
   /* Hero - Big and Clear */
   .demo-hero {
-    padding: 25px 15px;
-    margin-bottom: 15px;
+    padding: 30px 15px;
+    margin-bottom: 20px;
     text-align: center;
   }
   
   .demo-hero-tag {
     justify-content: center;
     font-size: 0.6rem;
-    margin-bottom: 12px;
+    margin-bottom: 15px;
   }
   
   .demo-hero-title {
-    font-size: 2.8rem;
-    line-height: 1;
+    font-size: 3.5rem;
+    line-height: 1.1;
   }
   
   .demo-hero-title .text-outline {
-    font-size: 2.8rem;
+    font-size: 3.5rem;
+    display: block;
+    margin-top: 5px;
   }
   
   .demo-hero-subtitle {
-    font-size: 0.7rem;
-    margin-top: 10px;
+    font-size: 0.75rem;
+    margin-top: 15px;
   }
   
   /* Map - Reduced height */
@@ -3313,7 +3334,7 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   font-size: 0.9rem;
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .policy-links-grid a:hover {
@@ -3577,7 +3598,7 @@
   border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 16px;
   padding: 20px 25px;
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .amount-input-wrapper.focused {
@@ -3636,7 +3657,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .quick-amount-btn:hover {
@@ -3662,7 +3683,7 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: not-allowed;
-  transition: all 0.3s ease;
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .pay-btn.active {
@@ -3749,7 +3770,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .support-again-btn:hover,
@@ -4108,7 +4129,7 @@
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .followup-chip:hover {
@@ -4166,7 +4187,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .metric-card.positive {
@@ -4723,12 +4744,21 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 40px;
-  transition: all 0.3s ease;
+  transition: 
+    border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    background 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: border-color, background, transform, box-shadow;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .engine-card:hover {
   border-color: rgba(204, 255, 0, 0.3);
   background: rgba(204, 255, 0, 0.02);
+  transform: translateY(-3px) translateZ(0);
+  box-shadow: 0 10px 30px rgba(204, 255, 0, 0.1);
 }
 
 .engine-icon {
@@ -4952,12 +4982,14 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 30px;
   text-align: center;
-  transition: all 0.3s ease;
+  transition: border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: border-color, transform;
 }
 
 .feature-detail-card:hover {
   border-color: rgba(204, 255, 0, 0.3);
   transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(204, 255, 0, 0.1);
 }
 
 .feature-card-icon {
@@ -5192,12 +5224,13 @@
   color: var(--black);
   text-decoration: none;
   letter-spacing: 2px;
-  transition: all 0.3s ease;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
 }
 
 .cta-primary:hover {
   transform: scale(1.05);
-  box-shadow: 0 10px 30px rgba(204, 255, 0, 0.3);
+  box-shadow: 0 15px 40px rgba(204, 255, 0, 0.4);
 }
 
 .cta-secondary {
@@ -5209,7 +5242,7 @@
   text-decoration: none;
   letter-spacing: 2px;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cta-secondary:hover {
@@ -5515,9 +5548,10 @@
   text-decoration: none;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
+  will-change: transform, box-shadow;
 }
 
 .fp-magnetic-btn.fp-btn-primary {
@@ -5608,7 +5642,7 @@
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 2px;
-  transition: all 0.3s ease;
+  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fp-nav-links a:hover {
@@ -5762,12 +5796,14 @@
   padding: 40px 30px;
   text-align: center;
   backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: background, transform;
 }
 
 .fp-stat-card:hover {
   background: rgba(0, 255, 136, 0.05);
   border-color: rgba(0, 255, 136, 0.2);
+  transform: translateY(-5px);
 }
 
 .fp-stat-icon {
@@ -5910,7 +5946,7 @@
   color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   cursor: default;
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fp-feature-pill:hover {
@@ -6008,7 +6044,8 @@
   padding: 40px 30px;
   height: 100%;
   overflow: hidden;
-  transition: all 0.4s ease;
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: background, border-color;
 }
 
 .fp-engine-card:hover {
@@ -6156,12 +6193,14 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 15px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: background, transform;
 }
 
 .fp-query-card:hover {
   background: rgba(0, 255, 136, 0.05);
   border-color: rgba(0, 255, 136, 0.2);
+  transform: translateX(5px);
 }
 
 .fp-query-icon {
@@ -6255,7 +6294,7 @@
   border-radius: 12px;
   font-size: 15px;
   color: rgba(255, 255, 255, 0.8);
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fp-sim-feature:hover {
@@ -6292,11 +6331,12 @@
   border-radius: 20px;
   padding: 40px;
   height: 100%;
-  transition: all 0.3s ease;
+  transition: border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), background 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fp-tech-card:hover {
   border-color: rgba(0, 255, 136, 0.2);
+  background: rgba(0, 255, 136, 0.02);
 }
 
 .fp-tech-icon {
@@ -6342,7 +6382,8 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 20px;
   text-align: center;
-  transition: all 0.3s ease;
+  transition: border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), background 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 .fp-user-icon {
@@ -6871,7 +6912,7 @@
   font-size: 13px;
   color: rgba(255, 255, 255, 0.8);
   cursor: default;
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .capability-pill:hover {
@@ -6903,12 +6944,14 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
-  transition: all 0.3s ease;
+  transition: border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), background 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: border-color, transform;
 }
 
 .fp-stat-item:hover {
   border-color: rgba(204, 255, 0, 0.2);
   background: rgba(204, 255, 0, 0.03);
+  transform: translateY(-3px);
 }
 
 .stat-icon {
@@ -6972,8 +7015,9 @@
   border-radius: 20px;
   padding: 35px 28px;
   overflow: hidden;
-  transition: all 0.4s ease;
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: default;
+  will-change: transform;
 }
 
 .feature-engine-card:hover {
@@ -7173,12 +7217,14 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 20px;
-  transition: all 0.3s ease;
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: default;
+  will-change: background, transform;
 }
 
 .feature-bento-item:hover {
   background: rgba(204, 255, 0, 0.03);
+  transform: translateY(-3px);
 }
 
 .bento-icon {
@@ -7271,7 +7317,8 @@
   letter-spacing: 2px;
   border-radius: 50px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
 }
 
 .cta-btn.primary {
@@ -7603,7 +7650,7 @@
   border-radius: 4px;
   color: rgba(255, 255, 255, 0.7);
   cursor: default;
-  transition: all 0.3s ease;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ldrago-pill:hover {
@@ -7874,12 +7921,14 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
-  transition: all 0.3s ease;
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: default;
+  will-change: background, transform;
 }
 
 .capability-card:hover {
   background: rgba(204, 255, 0, 0.02);
+  transform: translateY(-3px);
 }
 
 .capability-icon {
@@ -8280,12 +8329,14 @@
   background: rgba(204, 255, 0, 0.03);
   border: 1px solid rgba(204, 255, 0, 0.2);
   padding: 30px;
-  transition: all 0.3s ease;
+  transition: border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), background 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: border-color, transform;
 }
 
 .data-card:hover {
   border-color: var(--lime);
   background: rgba(204, 255, 0, 0.05);
+  transform: translateY(-3px);
 }
 
 .data-card-header {
@@ -8396,12 +8447,14 @@
   background: rgba(204, 255, 0, 0.03);
   border: 1px solid rgba(204, 255, 0, 0.2);
   padding: 30px;
-  transition: all 0.3s ease;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 .ai-card:hover {
   transform: translateY(-5px);
   border-color: var(--lime);
+  box-shadow: 0 10px 30px rgba(204, 255, 0, 0.1);
 }
 
 .ai-card-header {
