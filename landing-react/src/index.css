@@ -47,14 +47,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* GPU acceleration for smooth animations */
-* {
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-
 /* Smooth scrolling for all scrollable elements */
-* {
+html {
   scroll-behavior: smooth;
 }
 

@@ -647,6 +647,7 @@ function App() {
               <Link to="/features" state={{ skipLoader: false }}>FEATURES</Link>
               <a href="#journey">ROADMAP</a>
               <Link to="/contact" state={{ skipLoader: false }}>CONTACT</Link>
+              <Link to="/founders" state={{ skipLoader: false }} className="nav-link-founders">FOUNDERS</Link>
               <Link to="/support" state={{ skipLoader: false }} className="nav-link-special">SUPPORT US</Link>
             </div>
             
