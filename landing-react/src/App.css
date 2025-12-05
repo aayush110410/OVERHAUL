@@ -39,6 +39,19 @@
   box-shadow: 0 0 30px rgba(255, 77, 0, 0.4);
 }
 
+/* Hide custom cursor on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .cursor {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .cursor {
+    display: none !important;
+  }
+}
+
 /* ============================================
    MOVING BACKGROUND - LN STYLE
    ============================================ */
@@ -5434,6 +5447,19 @@
   pointer-events: none;
   z-index: 99999;
   will-change: transform;
+}
+
+/* Hide cursor-dot on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .cursor-dot {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .cursor-dot {
+    display: none !important;
+  }
 }
 
 /* Scroll Progress Bar */
