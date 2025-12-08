@@ -422,6 +422,11 @@
   transform: translateX(0);
 }
 
+.mobile-drawer-founders {
+  color: var(--orange) !important;
+  font-weight: 600;
+}
+
 .mobile-drawer-special {
   color: var(--lime) !important;
   font-weight: 600;

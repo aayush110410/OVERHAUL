@@ -711,6 +711,7 @@ function App() {
                     <Link to="/features" state={{ skipLoader: false }} onClick={() => setMobileMenuOpen(false)}>FEATURES</Link>
                     <a href="#journey" onClick={() => setMobileMenuOpen(false)}>ROADMAP</a>
                     <Link to="/contact" state={{ skipLoader: false }} onClick={() => setMobileMenuOpen(false)}>CONTACT</Link>
+                    <Link to="/founders" state={{ skipLoader: false }} className="mobile-drawer-founders" onClick={() => setMobileMenuOpen(false)}>FOUNDERS</Link>
                     <Link to="/support" state={{ skipLoader: false }} className="mobile-drawer-special" onClick={() => setMobileMenuOpen(false)}>SUPPORT US</Link>
                   </div>
                   <div className="mobile-drawer-cta">
@@ -1428,6 +1429,7 @@ function App() {
               <div className="footer-col">
                 <h4>COMPANY</h4>
                 <a href="#about">About</a>
+                <Link to="/founders" state={{ skipLoader: false }}>Founders</Link>
                 <a href="#">Careers</a>
                 <a href="#">Press</a>
                 <Link to="/contact" state={{ skipLoader: false }}>Contact</Link>
