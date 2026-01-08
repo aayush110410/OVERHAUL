@@ -601,8 +601,8 @@ If user asks about multiple things, capture all of them."""
     
     async def answer_general_question(self, prompt: str, context: Dict = None) -> Dict[str, Any]:
         """
-        Handle general questions that don't need physics calculations.
-        Uses Gemini to provide intelligent, researched answers.
+        Handle ANY question - both domain-specific (traffic/AQI) and general world questions.
+        Uses Gemini to provide intelligent, comprehensive answers on ANY topic.
         """
         
         if not self.model:
@@ -613,7 +613,15 @@ If user asks about multiple things, capture all of them."""
         current_date = datetime.now().strftime("%B %d, %Y")
         current_month = datetime.now().strftime("%B %Y")
         
-        noida_context = f"""
+        # Check if this is a domain-specific question (traffic, AQI, urban planning)
+        prompt_lower = prompt.lower()
+        domain_keywords = ['aqi', 'air quality', 'pollution', 'traffic', 'noida', 'delhi', 
+                          'ev', 'electric vehicle', 'metro', 'congestion', 'pm2.5', 'smog']
+        is_domain_specific = any(kw in prompt_lower for kw in domain_keywords)
+        
+        if is_domain_specific:
+            # Use domain-specific context for traffic/AQI questions
+            domain_context = f"""
 CRITICAL: TODAY IS {current_date}. Use this for time-relevant answers.
 
 CURRENT AQI CRISIS - WINTER 2025-2026:
@@ -621,95 +629,71 @@ CURRENT AQI CRISIS - WINTER 2025-2026:
 - Current AQI levels: 350-500+ (Hazardous category) during peak winter months
 - Noida weekly average AQI (Jan 2026): ~380-420 (Very Poor to Severe)
 - Noida yearly average AQI (2025): 218 (Poor category)
-- This winter is significantly WORSE than 2024 due to:
-  * Extended cold wave trapping pollutants
-  * Increased stubble burning from Punjab/Haryana
-  * Higher vehicle emissions from traffic congestion
-  * Construction dust from metro/expressway projects
-
-REAL-TIME DATA TO USE:
-- Today's Noida AQI: ~{self.baselines.get('aqi', 380)}-450 (check before responding)
 - PM2.5: 280-350 µg/m³ (WHO safe limit: 15 µg/m³)
-- PM10: 400-550 µg/m³ 
 - Vehicular share of pollution: 38-42% in NCR
 - Current traffic speed: {self.baselines.get('speed_kmh', 22):.1f} km/h (below normal due to smog)
-
-RECENT NEWS & DEVELOPMENTS (Dec 2025 - Jan 2026):
-- GRAP Stage 4 activated multiple times in Delhi-NCR
-- Schools moved to hybrid mode due to air quality
-- Construction ban in effect during severe pollution days
-- Odd-even scheme discussed but not implemented
-- Electric vehicle registrations up 67% YoY in Noida (but still only 4.2% of fleet)
-- Metro Phase 4 expansion ongoing (adding 14 new stations by 2027)
-
-COMPARISON DATA (Winter 2025-2026):
-- Delhi AQI: 400-500+ (Severe to Hazardous)
-- Gurugram AQI: 320-400 (Very Poor to Severe)
-- Greater Noida AQI: 350-450 (Severe)
-- Ghaziabad AQI: 380-480 (Severe)
-- Lucknow AQI: 280-350 (Very Poor)
-- For context: Beijing winter AQI: 120-180 (improved due to policies)
 """
-        
-        general_prompt = f"""You are a senior research scientist specializing in urban air quality, traffic systems, and environmental policy at IIT Delhi. You have access to real-time data, academic publications, and government statistics.
-
-IMPORTANT: Respond like a proper researcher - cite specific data, compare with international standards, and provide evidence-based analysis. NEVER give generic answers. Your responses should demonstrate deep domain expertise.
+            general_prompt = f"""You are a senior research scientist specializing in urban air quality, traffic systems, and environmental policy. You have access to real-time data, academic publications, and government statistics.
 
 DATE: {current_date}
 
 QUESTION: {prompt}
 
-{noida_context}
+{domain_context}
 
-RESPONSE STYLE REQUIREMENTS:
-1. Start with CURRENT real-time data (today's AQI, this week's average, this winter's trend)
-2. Compare to yearly averages to show the severity
-3. If user asks about EVs or vehicle reduction:
-   - Calculate exact AQI impact using formula: Each 10% EV adoption = ~2.5% AQI reduction (vehicular share * reduction factor)
-   - Show current vehicular contribution to pollution (~40%)
-   - Compare to cities that achieved similar targets
-4. Use WHO standards and CPCB guidelines for context
-5. Reference recent news and policy developments
+Provide a comprehensive, well-researched response."""
+        else:
+            # Use general knowledge context for ANY world question
+            general_prompt = f"""You are a highly knowledgeable AI assistant with expertise across ALL domains - science, technology, history, arts, philosophy, current events, and more. You provide detailed, accurate, and thoughtful answers to ANY question.
 
-Provide a comprehensive, researcher-quality response as JSON:
+TODAY'S DATE: {current_date}
+
+QUESTION: {prompt}
+
+RESPONSE REQUIREMENTS:
+1. Be comprehensive and thorough - explain concepts clearly with relevant details
+2. Use specific facts, data, examples where applicable
+3. Structure your response logically
+4. If the topic has multiple perspectives, present them fairly
+5. Cite sources or reasoning when making claims
+6. Be engaging and educational - make complex topics accessible
+7. For technical questions, provide accurate explanations
+8. For creative questions, be thoughtful and imaginative
+9. For current events, provide context and balanced analysis
+10. NEVER say you can't answer - always provide helpful information
+
+Your response should be like a knowledgeable expert having a conversation - detailed, clear, and genuinely helpful."""
+        
+        # Generate response with appropriate JSON structure
+        response_prompt = f"""{general_prompt}
+
+Respond in this JSON format:
 {{
-    "executive_summary": "Clear answer with TODAY's data. Example: 'As of {current_date}, Noida's AQI stands at 412 (Severe), up 18% from this week's average of 349...'",
-    "current_status": {{
-        "today_aqi": "specific number",
-        "weekly_average": "number with trend",
-        "yearly_average_2025": "number",
-        "severity_comparison": "how this compares to historical data"
-    }},
+    "executive_summary": "A clear, comprehensive answer to the question (2-4 sentences that directly address what was asked)",
     "key_findings": [
-        {{"finding": "specific finding with numbers and sources", "evidence": "data source", "confidence": 0.7-1.0}}
+        {{"finding": "Important point or fact relevant to the question", "evidence": "supporting detail or source", "confidence": 0.7-1.0}}
     ],
     "detailed_analysis": {{
-        "primary_answer": "3-4 paragraphs with specific calculations. If discussing X% reduction scenarios, show: Current AQI × (1 - vehicular_share × reduction_percent) = Projected AQI",
-        "scientific_basis": "Research/studies backing this analysis",
-        "international_comparison": "How other cities (Beijing, London, Singapore) achieved similar outcomes"
+        "primary_answer": "Detailed, thorough explanation (3-5 paragraphs covering the topic comprehensively). Include relevant facts, context, examples, and explanations. This should be the main substance of your response.",
+        "additional_context": "Related information that enriches the answer",
+        "considerations": "Important nuances, caveats, or different perspectives to consider"
     }},
-    "impact_projections": {{
-        "scenario_analyzed": "What the user asked about",
-        "current_baseline": "Today's numbers",
-        "projected_outcome": "Calculated result with formula shown",
-        "confidence_interval": "Range of outcomes",
-        "timeline": "When this could be achieved"
+    "practical_insights": {{
+        "key_takeaways": ["Main points the reader should remember"],
+        "applications": "How this knowledge can be applied or why it matters",
+        "further_exploration": "Related topics or resources for learning more"
     }},
-    "policy_recommendations": [
-        {{"recommendation": "specific actionable step", "expected_impact": "quantified benefit", "implementation_timeline": "realistic timeline", "reference_city": "city that did this successfully"}}
-    ],
     "data_transparency": {{
-        "calculation_method": "Detailed methodology used",
-        "data_sources": ["CPCB", "WHO", "Recent studies", "Government reports"],
-        "limitations": "What this analysis doesn't account for",
-        "confidence_level": "high/medium with explanation"
+        "information_sources": ["Types of knowledge used - general knowledge, research, reasoning"],
+        "confidence_level": "high/medium/low with brief explanation",
+        "limitations": "Any gaps in the answer or areas of uncertainty"
     }}
 }}
 
-Remember: You are a researcher, not a chatbot. Every claim must be backed by data or calculations. Show your work."""
+Remember: Provide a THOROUGH, HELPFUL answer. Be informative and engaging. Never refuse to answer - always provide valuable information on the topic."""
 
         try:
-            response = self.model.generate_content(general_prompt)
+            response = self.model.generate_content(response_prompt)
             text = response.text
             
             # Try to extract JSON from various formats
