@@ -1,0 +1,151 @@
+.map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.prompt-box {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 360px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 2;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.prompt-box textarea {
+  min-height: 80px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.prompt-box button {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #00d4ff, #0099cc);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.prompt-box button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+}
+
+.prompt-box button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.info-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 320px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  z-index: 2;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.info-panel.error {
+  border: 1px solid #ff4444;
+}
+
+.info-panel h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #00d4ff;
+}
+
+.info-panel h4 {
+  margin: 12px 0 8px 0;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.info-item {
+  background: rgba(255,255,255,0.05);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.info-item .label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.info-item .value {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.traffic-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #333;
+}
+
+.traffic-section p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.reasoning {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #333;
+}
+
+.reasoning p {
+  font-size: 13px;
+  color: #aaa;
+  font-style: italic;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #333;
+  border-top-color: #00d4ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

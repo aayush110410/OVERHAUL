@@ -292,7 +292,7 @@ function Demo() {
   }, [])
   
   // Demo State
-  const [prompt, setPrompt] = useState('Analyze impact of increased EV adoption on corridor traffic flow and air quality')
+  const [prompt, setPrompt] = useState('')
   const [mode, setMode] = useState('fast')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisComplete, setAnalysisComplete] = useState(false)
@@ -1465,7 +1465,7 @@ function Demo() {
                         className="demo-textarea"
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Describe your traffic scenario..."
+                        placeholder="e.g., What if 50% of Noida vehicles were EVs? How would AQI change?"
                         rows={4}
                       />
                     </div>
