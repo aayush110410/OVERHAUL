@@ -363,7 +363,7 @@ His approach is singular: create AI that doesn't just process data, but truly un
       achievements: [
         'Architected SafeSphere — intelligent geo-fencing for tourist safety',
         'Built RepairIQ — AI that diagnoses appliances like a master technician',
-        'Smart India Hackathon 2025 Finalist',
+        'Ex Joint Secretary of E-Cell — Student Entrepreneurship',
         'Led multiple national innovation competitions',
         'Pioneered multi-agent simulation systems'
       ],
@@ -394,7 +394,7 @@ He leads the multi-agent integration framework, ensuring that every AI component
       achievements: [
         'Mastered Python, SQL, and applied Machine Learning',
         'Co-developed SafeSphere, RepairIQ, and OVERHAUL',
-        'President of E-Cell — leading entrepreneurship initiatives',
+        'Ex President of E-Cell — Student Entrepreneurship',
         'Mentored dozens of student founders',
         'Designed multi-agent communication protocols'
       ],
