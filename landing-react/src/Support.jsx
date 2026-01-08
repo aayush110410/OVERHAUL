@@ -240,6 +240,8 @@ function Support() {
   const quickAmounts = [100, 500, 1000, 2500, 5000]
   const minAmount = 10
 
+  const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_S1P4ifW0LjTdXS'
+
   // Handle browser back/forward buttons
   useEffect(() => {
     window.history.pushState({ skipLoader: true }, '', window.location.href)
@@ -292,9 +294,9 @@ function Support() {
       }
       rafId.current = requestAnimationFrame(updateCursor)
     }
-    
+
     rafId.current = requestAnimationFrame(updateCursor)
-    
+
     const handleMouseMove = (e) => {
       mousePos.current = { x: e.clientX, y: e.clientY }
     }
@@ -302,7 +304,7 @@ function Support() {
     window.addEventListener('mousemove', handleMouseMove, { passive: true })
     
     return () => {
-      cancelAnimationFrame(rafId.current)
+      if (rafId.current) cancelAnimationFrame(rafId.current)
       window.removeEventListener('mousemove', handleMouseMove)
     }
   }, [])
@@ -331,7 +333,7 @@ function Support() {
     }
 
     const options = {
-      key: 'rzp_test_RmHYwuBZOYY3QD',
+      key: RAZORPAY_KEY_ID,
       amount: numAmount * 100,
       currency: 'INR',
       name: 'OVERHAUL',

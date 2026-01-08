@@ -1,118 +1,101 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import './App.css'
+import { API_BASE } from './api/config'
+import { cartoLightOsmStyle } from './maps/styles/cartoLightOsmStyle'
+
+// Live demo basemap switch:
+// - Default: Azure Maps (Microsoft)
+// - Rollback: swap to cartoDarkOsmStyle
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
-
-// API Base URL
-const API_BASE = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:8000'
-  : 'https://overhaul-1.onrender.com'
 
 // ============================================
 // OV LOADER (Same style as Contact page)
 // ============================================
 function OVLoader({ onComplete }) {
-  const [phase, setPhase] = useState('zoomOut') // zoomOut -> hold -> zoomIn -> done
+  const [phase, setPhase] = useState('intro')
   const [count, setCount] = useState(0)
-  
+
   useEffect(() => {
-    // Count up animation
-    const countInterval = setInterval(() => {
+    const introTimer = setTimeout(() => {
+      setPhase('loading')
+    }, 800)
+
+    return () => clearTimeout(introTimer)
+  }, [])
+
+  useEffect(() => {
+    if (phase !== 'loading') return
+
+    const interval = setInterval(() => {
       setCount(prev => {
         if (prev >= 100) {
-          clearInterval(countInterval)
+          clearInterval(interval)
+          setTimeout(() => {
+            setPhase('zooming')
+            setTimeout(() => {
+              onComplete()
+            }, 1200)
+          }, 400)
           return 100
         }
         return prev + 2
       })
-    }, 25)
+    }, 30)
 
-    // Phase 1: Zoom out from large scale
-    const holdTimer = setTimeout(() => {
-      setPhase('hold')
-    }, 600)
-    
-    return () => {
-      clearTimeout(holdTimer)
-      clearInterval(countInterval)
-    }
-  }, [])
-  
-  useEffect(() => {
-    if (phase === 'hold') {
-      // Phase 2: Hold at normal size while loading completes
-      const zoomInTimer = setTimeout(() => {
-        setPhase('zoomIn')
-      }, 1200)
-      return () => clearTimeout(zoomInTimer)
-    }
-  }, [phase])
-  
-  useEffect(() => {
-    if (phase === 'zoomIn') {
-      // Phase 3: Zoom in and fade out
-      const completeTimer = setTimeout(() => {
-        onComplete()
-      }, 600)
-      return () => clearTimeout(completeTimer)
-    }
-  }, [phase, onComplete])
+    return () => clearInterval(interval)
+  }, [onComplete, phase])
 
   return (
     <motion.div 
       className="loader-ln"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: phase === 'zoomIn' ? 0 : 1 }}
-      transition={{ 
-        duration: phase === 'zoomIn' ? 0.4 : 0.3, 
-        ease: [0.4, 0, 0.2, 1],
-        delay: phase === 'zoomIn' ? 0.3 : 0
-      }}
+      initial={{ opacity: 1 }}
+      animate={phase === 'zooming' ? { opacity: 0 } : { opacity: 1 }}
+      transition={{ duration: 0.5, ease: [0.76, 0, 0.24, 1], delay: phase === 'zooming' ? 0.8 : 0 }}
     >
       <div className="loader-ln-content">
         <motion.div 
           className="loader-ln-logo"
-          initial={{ scale: 50, opacity: 0 }}
-          animate={{
-            scale: phase === 'zoomOut' ? 1 : phase === 'hold' ? 1 : 50,
-            opacity: 1
-          }}
-          transition={{
-            duration: phase === 'zoomOut' ? 0.6 : phase === 'zoomIn' ? 0.6 : 0.1,
-            ease: [0.4, 0, 0.2, 1]
-          }}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={phase === 'zooming' 
+            ? { scale: 50, opacity: 1 } 
+            : { scale: 1, opacity: 1 }
+          }
+          transition={phase === 'zooming' 
+            ? { duration: 1, ease: [0.76, 0, 0.24, 1] }
+            : { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+          }
         >
           <motion.span 
             className="loader-ln-text-o"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           >
             O
           </motion.span>
           <motion.span 
             className="loader-ln-text-v"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
             V
           </motion.span>
         </motion.div>
         
-        {/* Loading Bar */}
         <motion.div 
           className="loader-ln-bar"
-          initial={{ scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: phase === 'zoomIn' ? 0 : 1 }}
-          transition={{ duration: 0.4, delay: 0.4, ease: [0.4, 0, 0.2, 1] }}
+          initial={{ opacity: 0, scaleX: 0 }}
+          animate={{ opacity: 1, scaleX: 1 }}
+          transition={{ duration: 0.4, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.div 
             className="loader-ln-fill"
@@ -124,9 +107,9 @@ function OVLoader({ onComplete }) {
         
         <motion.div 
           className="loader-ln-status"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: phase === 'zoomIn' ? 0 : 1 }}
-          transition={{ delay: 0.5, duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
           <span>INITIALIZING DEMO</span>
           <span>{count}%</span>
@@ -146,7 +129,7 @@ function ExitLoader({ onComplete }) {
     // Phase 1: Zoom out (logo appears from large scale)
     const holdTimer = setTimeout(() => {
       setPhase('hold')
-    }, 500)
+    }, 400)
     
     return () => clearTimeout(holdTimer)
   }, [])
@@ -156,7 +139,7 @@ function ExitLoader({ onComplete }) {
       // Phase 2: Brief hold at normal size
       const zoomInTimer = setTimeout(() => {
         setPhase('zoomIn')
-      }, 300)
+      }, 200)
       return () => clearTimeout(zoomInTimer)
     }
   }, [phase])
@@ -166,7 +149,7 @@ function ExitLoader({ onComplete }) {
       // Phase 3: Zoom in and fade out
       const completeTimer = setTimeout(() => {
         onComplete()
-      }, 600)
+      }, 500)
       return () => clearTimeout(completeTimer)
     }
   }, [phase, onComplete])
@@ -177,9 +160,9 @@ function ExitLoader({ onComplete }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: phase === 'zoomIn' ? 0 : 1 }}
       transition={{ 
-        duration: phase === 'zoomIn' ? 0.4 : 0.3, 
-        ease: [0.76, 0, 0.24, 1],
-        delay: phase === 'zoomIn' ? 0.3 : 0
+        duration: phase === 'zoomIn' ? 0.3 : 0.2, 
+        ease: [0.4, 0, 0.2, 1],
+        delay: phase === 'zoomIn' ? 0.25 : 0
       }}
     >
       <div className="loader-ln-content">
@@ -191,15 +174,15 @@ function ExitLoader({ onComplete }) {
             opacity: 1
           }}
           transition={{
-            duration: phase === 'zoomOut' ? 0.5 : phase === 'zoomIn' ? 0.6 : 0.1,
-            ease: [0.76, 0, 0.24, 1]
+            duration: phase === 'zoomOut' ? 0.4 : phase === 'zoomIn' ? 0.5 : 0.1,
+            ease: [0.4, 0, 0.2, 1]
           }}
         >
           <motion.span 
             className="loader-ln-text-o"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.2, delay: 0.2 }}
+            transition={{ duration: 0.2, delay: 0.15, ease: [0.4, 0, 0.2, 1] }}
           >
             O
           </motion.span>
@@ -207,7 +190,7 @@ function ExitLoader({ onComplete }) {
             className="loader-ln-text-v"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.2, delay: 0.25 }}
+            transition={{ duration: 0.2, delay: 0.2, ease: [0.4, 0, 0.2, 1] }}
           >
             V
           </motion.span>
@@ -404,9 +387,9 @@ function Demo() {
       }
       rafId.current = requestAnimationFrame(updateCursor)
     }
-    
+
     rafId.current = requestAnimationFrame(updateCursor)
-    
+
     const handleMouseMove = (e) => {
       mousePos.current = { x: e.clientX, y: e.clientY }
     }
@@ -414,7 +397,7 @@ function Demo() {
     window.addEventListener('mousemove', handleMouseMove, { passive: true })
     
     return () => {
-      cancelAnimationFrame(rafId.current)
+      if (rafId.current) cancelAnimationFrame(rafId.current)
       window.removeEventListener('mousemove', handleMouseMove)
     }
   }, [])
@@ -448,122 +431,113 @@ function Demo() {
   // Initialize Map
   useEffect(() => {
     if (!loading && mapContainer.current && !mapRef.current) {
-      mapRef.current = new maplibregl.Map({
-        container: mapContainer.current,
-        style: {
-          version: 8,
-          sources: {
-            'carto-dark': {
-              type: 'raster',
-              tiles: [
-                'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-                'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-                'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+      let cancelled = false
+
+      ;(async () => {
+        // Basemap: OpenStreetMap (CARTO light) — no Mapbox dependency.
+        const style = cartoLightOsmStyle
+        if (cancelled || mapRef.current) return
+
+        mapRef.current = new maplibregl.Map({
+          container: mapContainer.current,
+          style,
+          center: [77.31, 28.60],
+          zoom: 12.8,
+          pitch: 50,
+          bearing: -15
+        })
+
+        // If the container was animated/hidden during mount, MapLibre can render a blank canvas.
+        // A resize on the next tick reliably fixes this.
+        setTimeout(() => mapRef.current?.resize(), 0)
+
+        mapRef.current.addControl(new maplibregl.NavigationControl(), 'top-right')
+
+        mapRef.current.on('load', () => {
+          if (!mapRef.current) return
+
+          // Add edges source for traffic visualization
+          mapRef.current.addSource('edges', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          })
+
+          // Add pollution source
+          mapRef.current.addSource('pollution', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          })
+
+          // Add route source
+          mapRef.current.addSource('route', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          })
+
+          // Pollution layer
+          mapRef.current.addLayer({
+            id: 'pollution-layer',
+            type: 'circle',
+            source: 'pollution',
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['get', 'intensity'], 0, 0, 1, 40],
+              'circle-color': 'rgba(255, 77, 0, 0.35)',
+              'circle-stroke-color': 'rgba(255, 77, 0, 0.8)',
+              'circle-stroke-width': 1,
+              'circle-opacity': 0.7
+            }
+          })
+
+          // Edges layer (traffic lines)
+          mapRef.current.addLayer({
+            id: 'edges-layer',
+            type: 'line',
+            source: 'edges',
+            paint: {
+              'line-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'ev_share'],
+                0, '#475569',
+                25, '#CCFF00',
+                60, '#00ff88',
+                90, '#ffff00'
               ],
-              tileSize: 256,
-              attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+              'line-width': ['case', ['get', 'primary'], 8, 4],
+              'line-opacity': 0.9,
+              'line-blur': 0.8
             }
-          },
-          layers: [
-            {
-              id: 'carto-dark-layer',
-              type: 'raster',
-              source: 'carto-dark',
-              minzoom: 0,
-              maxzoom: 22
+          })
+
+          // Route layer with glow effect
+          mapRef.current.addLayer({
+            id: 'route-glow',
+            type: 'line',
+            source: 'route',
+            paint: {
+              'line-color': '#CCFF00',
+              'line-width': 12,
+              'line-opacity': 0.3,
+              'line-blur': 8
             }
-          ]
-        },
-        center: [77.31, 28.60],
-        zoom: 12.8,
-        pitch: 50,
-        bearing: -15
-      })
+          })
 
-      mapRef.current.addControl(new maplibregl.NavigationControl(), 'top-right')
+          mapRef.current.addLayer({
+            id: 'route-line',
+            type: 'line',
+            source: 'route',
+            paint: {
+              'line-color': '#CCFF00',
+              'line-width': 4,
+              'line-opacity': 0.9
+            }
+          })
 
-      mapRef.current.on('load', () => {
-        // Add edges source for traffic visualization
-        mapRef.current.addSource('edges', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
+          // Fetch initial live data
+          fetchLiveRoute()
+          fetchLiveAQI()
         })
-
-        // Add pollution source
-        mapRef.current.addSource('pollution', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        })
-
-        // Add route source
-        mapRef.current.addSource('route', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        })
-
-        // Pollution layer
-        mapRef.current.addLayer({
-          id: 'pollution-layer',
-          type: 'circle',
-          source: 'pollution',
-          paint: {
-            'circle-radius': ['interpolate', ['linear'], ['get', 'intensity'], 0, 0, 1, 40],
-            'circle-color': 'rgba(255, 77, 0, 0.35)',
-            'circle-stroke-color': 'rgba(255, 77, 0, 0.8)',
-            'circle-stroke-width': 1,
-            'circle-opacity': 0.7
-          }
-        })
-
-        // Edges layer (traffic lines)
-        mapRef.current.addLayer({
-          id: 'edges-layer',
-          type: 'line',
-          source: 'edges',
-          paint: {
-            'line-color': [
-              'interpolate',
-              ['linear'],
-              ['get', 'ev_share'],
-              0, '#475569',
-              25, '#CCFF00',
-              60, '#00ff88',
-              90, '#ffff00'
-            ],
-            'line-width': ['case', ['get', 'primary'], 8, 4],
-            'line-opacity': 0.9,
-            'line-blur': 0.8
-          }
-        })
-
-        // Route layer with glow effect
-        mapRef.current.addLayer({
-          id: 'route-glow',
-          type: 'line',
-          source: 'route',
-          paint: {
-            'line-color': '#CCFF00',
-            'line-width': 12,
-            'line-opacity': 0.3,
-            'line-blur': 8
-          }
-        })
-
-        mapRef.current.addLayer({
-          id: 'route-line',
-          type: 'line',
-          source: 'route',
-          paint: {
-            'line-color': '#CCFF00',
-            'line-width': 4,
-            'line-opacity': 0.9
-          }
-        })
-
-        // Fetch initial live data
-        fetchLiveRoute()
-        fetchLiveAQI()
-      })
+      })()
     }
 
     return () => {
@@ -709,7 +683,7 @@ function Demo() {
     }
   }
 
-  // Run Analysis
+  // Run Analysis 
   const runAnalysis = async () => {
     if (isAnalyzing) return
 

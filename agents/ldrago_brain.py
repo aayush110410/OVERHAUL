@@ -18,9 +18,17 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 import google.generativeai as genai
 
-# Configure Gemini
+from azure_utils import (
+    azure_openai_chat_json,
+    azure_openai_chat_text,
+    azure_openai_enabled,
+    load_azure_config,
+)
+
+# Configure Gemini (optional fallback)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
 class LDRAgoBrain:
@@ -35,8 +43,21 @@ class LDRAgoBrain:
     """
     
     def __init__(self, data_context: Dict[str, Any] = None):
-        # Use Gemini 3 Pro for maximum intelligence
-        self.model = genai.GenerativeModel('gemini-3-pro-preview')
+        # Provider selection:
+        # - Primary: Azure OpenAI Service (if configured)
+        # - Fallback: Gemini (if configured)
+        self.azure_cfg = load_azure_config()
+        if azure_openai_enabled(self.azure_cfg):
+            self.provider = "azure_openai"
+        elif GEMINI_API_KEY:
+            self.provider = "gemini"
+        else:
+            self.provider = "none"
+
+        self.model = None
+        if self.provider == "gemini":
+            # Gemini fallback
+            self.model = genai.GenerativeModel('gemini-3-pro-preview')
         self.data_context = data_context or {}
         self.conversation_history = []
         
@@ -110,38 +131,79 @@ Analyze this prompt and respond with a JSON object containing:
 
 Think step by step. What is the user really asking for?"""
 
-        try:
-            response = await asyncio.to_thread(
-                self.model.generate_content, thinking_prompt
-            )
-            
-            # Parse JSON from response
-            text = response.text
-            # Extract JSON from markdown code blocks if present
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            
-            thought = json.loads(text.strip())
-            thought["raw_prompt"] = prompt
-            thought["thinking_timestamp"] = datetime.now().isoformat()
-            
-            return thought
-            
-        except Exception as e:
-            # Fallback to basic analysis if Gemini fails
-            return {
-                "understood_intent": f"Analyze: {prompt[:100]}",
-                "key_entities": [],
-                "required_data": ["traffic_live", "aqi_live"],
-                "required_capabilities": ["traffic_simulation"],
-                "time_scope": "immediate",
-                "confidence": 0.5,
-                "clarifying_questions": [],
-                "noida_specific_context": "General Noida corridor analysis",
-                "error": str(e)
-            }
+        if self.provider == "azure_openai":
+            try:
+                thought = await azure_openai_chat_json(
+                    prompt=thinking_prompt,
+                    system=(
+                        "You are LDRAGo, an expert urban mobility analyst for Noida, India. "
+                        "Return ONLY a valid JSON object matching the requested schema."
+                    ),
+                    cfg=self.azure_cfg,
+                    temperature=0.2,
+                    max_output_tokens=900,
+                )
+                thought["raw_prompt"] = prompt
+                thought["thinking_timestamp"] = datetime.now().isoformat()
+                return thought
+            except Exception as e:
+                return {
+                    "understood_intent": f"Analyze: {prompt[:100]}",
+                    "key_entities": [],
+                    "required_data": ["traffic_live", "aqi_live"],
+                    "required_capabilities": ["traffic_simulation"],
+                    "time_scope": "immediate",
+                    "confidence": 0.5,
+                    "clarifying_questions": [],
+                    "noida_specific_context": "General Noida corridor analysis",
+                    "error": str(e),
+                    "raw_prompt": prompt,
+                    "thinking_timestamp": datetime.now().isoformat(),
+                }
+
+        if self.provider == "gemini" and self.model is not None:
+            try:
+                response = await asyncio.to_thread(self.model.generate_content, thinking_prompt)
+
+                # Parse JSON from response
+                text = response.text
+                # Extract JSON from markdown code blocks if present
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+
+                thought = json.loads(text.strip())
+                thought["raw_prompt"] = prompt
+                thought["thinking_timestamp"] = datetime.now().isoformat()
+                return thought
+
+            except Exception as e:
+                return {
+                    "understood_intent": f"Analyze: {prompt[:100]}",
+                    "key_entities": [],
+                    "required_data": ["traffic_live", "aqi_live"],
+                    "required_capabilities": ["traffic_simulation"],
+                    "time_scope": "immediate",
+                    "confidence": 0.5,
+                    "clarifying_questions": [],
+                    "noida_specific_context": "General Noida corridor analysis",
+                    "error": str(e),
+                }
+
+        # No provider configured
+        return {
+            "understood_intent": f"Analyze: {prompt[:100]}",
+            "key_entities": [],
+            "required_data": ["traffic_live", "aqi_live"],
+            "required_capabilities": ["traffic_simulation"],
+            "time_scope": "immediate",
+            "confidence": 0.4,
+            "clarifying_questions": ["Set AZURE_OPENAI_* or GEMINI_API_KEY to enable full reasoning."],
+            "noida_specific_context": "General Noida corridor analysis",
+            "raw_prompt": prompt,
+            "thinking_timestamp": datetime.now().isoformat(),
+        }
     
     async def plan(self, thought: Dict[str, Any], available_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -181,37 +243,77 @@ Create an execution plan as a JSON object:
 
 Create an efficient plan that gets the user what they need."""
 
-        try:
-            response = await asyncio.to_thread(
-                self.model.generate_content, planning_prompt
-            )
-            
-            text = response.text
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            
-            plan = json.loads(text.strip())
-            plan["thought"] = thought
-            plan["planning_timestamp"] = datetime.now().isoformat()
-            
-            return plan
-            
-        except Exception as e:
-            # Fallback to basic plan
-            return {
-                "plan_summary": "Execute standard analysis pipeline",
-                "steps": [
-                    {"step_id": 1, "action": "fetch_live_traffic", "description": "Get current traffic state", "inputs": {}, "depends_on": []},
-                    {"step_id": 2, "action": "fetch_live_aqi", "description": "Get current air quality", "inputs": {}, "depends_on": []},
-                    {"step_id": 3, "action": "run_simulation", "description": "Run traffic simulation", "inputs": {}, "depends_on": [1]},
-                    {"step_id": 4, "action": "predict_impact", "description": "Calculate impacts", "inputs": {}, "depends_on": [2, 3]},
-                ],
-                "expected_outputs": ["Traffic analysis", "AQI impact", "Recommendations"],
-                "estimated_confidence": 0.6,
-                "error": str(e)
-            }
+        if self.provider == "azure_openai":
+            try:
+                plan = await azure_openai_chat_json(
+                    prompt=planning_prompt,
+                    system=(
+                        "You are LDRAGo planning an analysis workflow. "
+                        "Return ONLY a valid JSON object matching the requested schema."
+                    ),
+                    cfg=self.azure_cfg,
+                    temperature=0.2,
+                    max_output_tokens=900,
+                )
+                plan["thought"] = thought
+                plan["planning_timestamp"] = datetime.now().isoformat()
+                return plan
+            except Exception as e:
+                return {
+                    "plan_summary": "Execute standard analysis pipeline",
+                    "steps": [
+                        {"step_id": 1, "action": "fetch_live_traffic", "description": "Get current traffic state", "inputs": {}, "depends_on": []},
+                        {"step_id": 2, "action": "fetch_live_aqi", "description": "Get current air quality", "inputs": {}, "depends_on": []},
+                        {"step_id": 3, "action": "run_simulation", "description": "Run traffic simulation", "inputs": {}, "depends_on": [1]},
+                        {"step_id": 4, "action": "predict_impact", "description": "Calculate impacts", "inputs": {}, "depends_on": [2, 3]},
+                    ],
+                    "expected_outputs": ["Traffic analysis", "AQI impact", "Recommendations"],
+                    "estimated_confidence": 0.6,
+                    "error": str(e),
+                }
+
+        if self.provider == "gemini" and self.model is not None:
+            try:
+                response = await asyncio.to_thread(self.model.generate_content, planning_prompt)
+
+                text = response.text
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+
+                plan = json.loads(text.strip())
+                plan["thought"] = thought
+                plan["planning_timestamp"] = datetime.now().isoformat()
+                return plan
+
+            except Exception as e:
+                return {
+                    "plan_summary": "Execute standard analysis pipeline",
+                    "steps": [
+                        {"step_id": 1, "action": "fetch_live_traffic", "description": "Get current traffic state", "inputs": {}, "depends_on": []},
+                        {"step_id": 2, "action": "fetch_live_aqi", "description": "Get current air quality", "inputs": {}, "depends_on": []},
+                        {"step_id": 3, "action": "run_simulation", "description": "Run traffic simulation", "inputs": {}, "depends_on": [1]},
+                        {"step_id": 4, "action": "predict_impact", "description": "Calculate impacts", "inputs": {}, "depends_on": [2, 3]},
+                    ],
+                    "expected_outputs": ["Traffic analysis", "AQI impact", "Recommendations"],
+                    "estimated_confidence": 0.6,
+                    "error": str(e),
+                }
+
+        # No provider configured
+        return {
+            "plan_summary": "Execute standard analysis pipeline",
+            "steps": [
+                {"step_id": 1, "action": "fetch_live_traffic", "description": "Get current traffic state", "inputs": {}, "depends_on": []},
+                {"step_id": 2, "action": "fetch_live_aqi", "description": "Get current air quality", "inputs": {}, "depends_on": []},
+                {"step_id": 3, "action": "run_simulation", "description": "Run traffic simulation", "inputs": {}, "depends_on": [1]},
+                {"step_id": 4, "action": "predict_impact", "description": "Calculate impacts", "inputs": {}, "depends_on": [2, 3]},
+            ],
+            "expected_outputs": ["Traffic analysis", "AQI impact", "Recommendations"],
+            "estimated_confidence": 0.5,
+            "error": "No LLM provider configured",
+        }
     
     async def synthesize(
         self, 
@@ -258,43 +360,94 @@ Generate a comprehensive response as JSON:
 
 Be specific, use numbers from the data, and be honest about uncertainties."""
 
-        try:
-            response = await asyncio.to_thread(
-                self.model.generate_content, synthesis_prompt
-            )
-            
-            text = response.text
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            
-            synthesis = json.loads(text.strip())
-            synthesis["synthesis_timestamp"] = datetime.now().isoformat()
-            
-            return synthesis
-            
-        except Exception as e:
-            # Generate basic synthesis from results
-            return {
-                "executive_summary": f"Analysis of: {thought.get('understood_intent', prompt[:100])}",
-                "key_findings": [
-                    {"finding": "Analysis completed with available data", "confidence": 0.6, "data_source": "mixed"}
-                ],
-                "detailed_analysis": {
-                    "traffic": execution_results.get("traffic_summary", "Traffic data processed"),
-                    "air_quality": execution_results.get("aqi_summary", "AQI data processed"),
-                    "economic": "Economic impact requires further analysis",
-                    "recommendations": ["Continue monitoring traffic patterns", "Consider EV adoption incentives"]
-                },
-                "data_transparency": {
-                    "sources_used": ["live_traffic", "live_aqi", "historical_data"],
-                    "limitations": ["Real-time data may have delays"],
-                    "confidence_level": "medium"
-                },
-                "follow_up_suggestions": ["What specific interventions would you like to explore?"],
-                "error": str(e)
-            }
+        if self.provider == "azure_openai":
+            try:
+                synthesis = await azure_openai_chat_json(
+                    prompt=synthesis_prompt,
+                    system=(
+                        "You are LDRAGo synthesizing analysis results. "
+                        "Return ONLY a valid JSON object matching the requested schema."
+                    ),
+                    cfg=self.azure_cfg,
+                    temperature=0.2,
+                    max_output_tokens=1200,
+                )
+                synthesis["synthesis_timestamp"] = datetime.now().isoformat()
+                return synthesis
+            except Exception as e:
+                return {
+                    "executive_summary": f"Analysis of: {thought.get('understood_intent', prompt[:100])}",
+                    "key_findings": [
+                        {"finding": "Analysis completed with available data", "confidence": 0.6, "data_source": "mixed"}
+                    ],
+                    "detailed_analysis": {
+                        "traffic": execution_results.get("traffic_summary", "Traffic data processed"),
+                        "air_quality": execution_results.get("aqi_summary", "AQI data processed"),
+                        "economic": "Economic impact requires further analysis",
+                        "recommendations": ["Continue monitoring traffic patterns", "Consider EV adoption incentives"],
+                    },
+                    "data_transparency": {
+                        "sources_used": ["live_traffic", "live_aqi", "historical_data"],
+                        "limitations": ["Real-time data may have delays"],
+                        "confidence_level": "medium",
+                    },
+                    "follow_up_suggestions": ["What specific interventions would you like to explore?"],
+                    "error": str(e),
+                }
+
+        if self.provider == "gemini" and self.model is not None:
+            try:
+                response = await asyncio.to_thread(self.model.generate_content, synthesis_prompt)
+
+                text = response.text
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+
+                synthesis = json.loads(text.strip())
+                synthesis["synthesis_timestamp"] = datetime.now().isoformat()
+                return synthesis
+
+            except Exception as e:
+                return {
+                    "executive_summary": f"Analysis of: {thought.get('understood_intent', prompt[:100])}",
+                    "key_findings": [
+                        {"finding": "Analysis completed with available data", "confidence": 0.6, "data_source": "mixed"}
+                    ],
+                    "detailed_analysis": {
+                        "traffic": execution_results.get("traffic_summary", "Traffic data processed"),
+                        "air_quality": execution_results.get("aqi_summary", "AQI data processed"),
+                        "economic": "Economic impact requires further analysis",
+                        "recommendations": ["Continue monitoring traffic patterns", "Consider EV adoption incentives"],
+                    },
+                    "data_transparency": {
+                        "sources_used": ["live_traffic", "live_aqi", "historical_data"],
+                        "limitations": ["Real-time data may have delays"],
+                        "confidence_level": "medium",
+                    },
+                    "follow_up_suggestions": ["What specific interventions would you like to explore?"],
+                    "error": str(e),
+                }
+
+        return {
+            "executive_summary": f"Analysis of: {thought.get('understood_intent', prompt[:100])}",
+            "key_findings": [
+                {"finding": "Analysis completed with available data", "confidence": 0.5, "data_source": "mixed"}
+            ],
+            "detailed_analysis": {
+                "traffic": execution_results.get("traffic_summary", "Traffic data processed"),
+                "air_quality": execution_results.get("aqi_summary", "AQI data processed"),
+                "economic": "Economic impact requires further analysis",
+                "recommendations": ["Continue monitoring traffic patterns"],
+            },
+            "data_transparency": {
+                "sources_used": ["live_traffic", "live_aqi", "historical_data"],
+                "limitations": ["No LLM provider configured"],
+                "confidence_level": "low",
+            },
+            "follow_up_suggestions": ["Configure Azure OpenAI to enable detailed synthesis."],
+        }
     
     async def generate_narrative(self, synthesis: Dict[str, Any], mode: str = "concise") -> str:
         """
@@ -307,18 +460,39 @@ Be specific, use numbers from the data, and be honest about uncertainties."""
 
 Write naturally, like an expert briefing a colleague. Use specific numbers. No JSON, just plain text."""
 
-        try:
-            response = await asyncio.to_thread(
-                self.model.generate_content, narrative_prompt
-            )
-            return response.text.strip()
-        except Exception as e:
-            # Fallback narrative
-            summary = synthesis.get("executive_summary", "Analysis complete.")
-            findings = synthesis.get("key_findings", [])
-            if findings:
-                summary += f" Key finding: {findings[0].get('finding', '')}"
-            return summary
+        if self.provider == "azure_openai":
+            try:
+                return await azure_openai_chat_text(
+                    prompt=narrative_prompt,
+                    system=(
+                        "You are LDRAGo. Write a clear, professional narrative. "
+                        "Return plain text only."
+                    ),
+                    cfg=self.azure_cfg,
+                    temperature=0.3,
+                    max_output_tokens=500,
+                )
+            except Exception:
+                pass
+
+        if self.provider == "gemini" and self.model is not None:
+            try:
+                response = await asyncio.to_thread(self.model.generate_content, narrative_prompt)
+                return response.text.strip()
+            except Exception as e:
+                # Fallback narrative
+                summary = synthesis.get("executive_summary", "Analysis complete.")
+                findings = synthesis.get("key_findings", [])
+                if findings:
+                    summary += f" Key finding: {findings[0].get('finding', '')}"
+                return summary
+
+        # Fallback narrative (no provider)
+        summary = synthesis.get("executive_summary", "Analysis complete.")
+        findings = synthesis.get("key_findings", [])
+        if findings:
+            summary += f" Key finding: {findings[0].get('finding', '')}"
+        return summary
     
     async def process(self, prompt: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """

@@ -189,9 +189,9 @@ function Features() {
       }
       rafId.current = requestAnimationFrame(updateCursor)
     }
-    
+
     rafId.current = requestAnimationFrame(updateCursor)
-    
+
     const handleMouseMove = (e) => {
       mousePos.current = { x: e.clientX, y: e.clientY }
     }
@@ -199,7 +199,7 @@ function Features() {
     window.addEventListener('mousemove', handleMouseMove, { passive: true })
     
     return () => {
-      cancelAnimationFrame(rafId.current)
+      if (rafId.current) cancelAnimationFrame(rafId.current)
       window.removeEventListener('mousemove', handleMouseMove)
     }
   }, [])

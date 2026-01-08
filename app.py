@@ -1,6 +1,6 @@
 # app.py
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Tuple
@@ -12,6 +12,23 @@ import numpy as np
 import random
 import math
 import httpx
+
+from azure_utils import (
+    azure_maps_enabled,
+    azure_maps_geocode,
+    azure_maps_reverse_geocode,
+    azure_openai_enabled,
+    load_azure_config,
+)
+from validation_store import (
+    approve_entry,
+    create_entry,
+    init_validation_db,
+    list_entries,
+    get_stats,
+    sanitize_text,
+    set_entry_location,
+)
 
 from traffic_god_bridge import TrafficGodService
 from agents.aqi_agent import AQIAgent
@@ -1663,6 +1680,35 @@ app.add_middleware(
 )
 
 from fastapi import Query
+from fastapi import Header
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    # Initialize Customer Validation DB (SQLite)
+    await init_validation_db()
+
+
+class ValidationCreateRequest(BaseModel):
+    name: Optional[str] = None
+    email: str
+    role: Optional[str] = None
+    organization: Optional[str] = None
+    # New survey fields
+    problem_relevance: int = 5
+    has_experience: bool = False
+    tools_shortcoming: Optional[str] = None
+    usage_contexts: Optional[List[str]] = None
+    learning_tool_value: Optional[str] = None
+    interesting_aspect: Optional[str] = None
+    suggested_improvement: Optional[str] = None
+    interest_in_trying: Optional[str] = None
+    # Legacy fields for backwards compatibility
+    rating: Optional[int] = None
+    need_validation: Optional[str] = None
+    intended_use: Optional[str] = None
+    feedback: Optional[str] = None
+    location: Optional[str] = None
 
 @app.get("/")
 async def root():
@@ -1673,6 +1719,29 @@ async def root():
 async def health():
     """Health check endpoint for uptime monitoring"""
     return {"status": "alive", "service": "overhaul-backend"}
+
+
+@app.get("/integrations/status")
+async def integrations_status():
+    """Report which external integrations are configured.
+
+    This endpoint intentionally does not return secrets.
+    """
+
+    cfg = load_azure_config()
+    return {
+        "azure_maps": {
+            "enabled": azure_maps_enabled(cfg),
+            "has_key": bool(cfg.azure_maps_key),
+        },
+        "azure_openai": {
+            "enabled": azure_openai_enabled(cfg),
+            "has_endpoint": bool(cfg.azure_openai_endpoint),
+            "has_key": bool(cfg.azure_openai_key),
+            "has_deployment": bool(cfg.azure_openai_deployment),
+            "api_version": cfg.azure_openai_api_version,
+        },
+    }
 
 @app.get("/live/aqi")
 async def live_aqi(
@@ -1709,6 +1778,143 @@ async def live_route():
     """
     geojson = await fetch_demo_route_geojson()
     return geojson
+
+
+@app.get("/azure/maps/geocode")
+async def azure_maps_geocode_endpoint(
+    query: str = Query(..., min_length=1, max_length=200, description="Free-text address/place query"),
+    limit: int = Query(1, ge=1, le=10),
+):
+    cfg = load_azure_config()
+    if not azure_maps_enabled(cfg):
+        raise HTTPException(status_code=503, detail="Azure Maps not configured")
+    try:
+        return await azure_maps_geocode(query=query, limit=limit, cfg=cfg)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Azure Maps error: {exc}") from exc
+
+
+@app.get("/azure/maps/reverse")
+async def azure_maps_reverse_geocode_endpoint(
+    lat: float = Query(..., ge=-90.0, le=90.0),
+    lon: float = Query(..., ge=-180.0, le=180.0),
+):
+    cfg = load_azure_config()
+    if not azure_maps_enabled(cfg):
+        raise HTTPException(status_code=503, detail="Azure Maps not configured")
+    try:
+        return await azure_maps_reverse_geocode(lat=lat, lon=lon, cfg=cfg)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Azure Maps error: {exc}") from exc
+
+
+@app.get("/azure/maps/tile")
+async def azure_maps_tile_endpoint(
+    tilesetId: str = Query("microsoft.base.road", min_length=1, max_length=80),
+    zoom: int = Query(..., ge=0, le=22),
+    x: int = Query(..., ge=0),
+    y: int = Query(..., ge=0),
+    tileSize: int = Query(256, ge=256, le=512),
+    view: Optional[str] = Query(None, min_length=2, max_length=12),
+):
+    """Proxy Azure Maps tiles so the frontend doesn't need Azure credentials.
+
+    Uses Azure Maps Render - Get Map Tile.
+    """
+
+    cfg = load_azure_config()
+    if not azure_maps_enabled(cfg):
+        raise HTTPException(status_code=503, detail="Azure Maps not configured")
+
+    url = "https://atlas.microsoft.com/map/tile"
+    params: Dict[str, Any] = {
+        "api-version": "2024-04-01",
+        "tilesetId": tilesetId,
+        "zoom": zoom,
+        "x": x,
+        "y": y,
+        "tileSize": tileSize,
+    }
+    if view:
+        params["view"] = view
+
+    headers = {"subscription-key": cfg.azure_maps_key}
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            content_type = resp.headers.get("content-type") or "application/octet-stream"
+            return Response(content=resp.content, media_type=content_type)
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        raise HTTPException(status_code=status, detail=f"Azure Maps tile error: {exc}") from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Azure Maps tile error: {exc}") from exc
+
+
+@app.get("/validation/stats")
+async def validation_stats():
+    """Get validation statistics for live counter display."""
+    return await get_stats()
+
+
+@app.get("/validation/entries")
+async def validation_list_entries(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=50),
+):
+    return await list_entries(page=page, page_size=page_size, approved_only=True)
+
+
+@app.post("/validation/entries")
+async def validation_create_entry(req: ValidationCreateRequest):
+    payload = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    try:
+        created = await create_entry(payload=payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Enrich with Azure Maps (if configured + location provided)
+    cfg = load_azure_config()
+    location_query = sanitize_text(payload.get("location"), max_len=200)
+    if location_query and azure_maps_enabled(cfg):
+        try:
+            geo = await azure_maps_geocode(query=location_query, limit=1, cfg=cfg)
+            results = geo.get("results") or []
+            if results:
+                pos = (results[0].get("position") or {})
+                label = (results[0].get("address") or {}).get("freeformAddress")
+                await set_entry_location(
+                    entry_id=int(created["id"]),
+                    location_label=label,
+                    lat=pos.get("lat"),
+                    lon=pos.get("lon"),
+                )
+        except Exception:
+            # Best-effort enrichment; do not fail submission.
+            pass
+
+    return created
+
+
+@app.post("/validation/entries/{entry_id}/approve")
+async def validation_approve_entry(
+    entry_id: int,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    expected = (os.getenv("VALIDATION_ADMIN_TOKEN") or "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="Moderation not configured")
+    if not x_admin_token or x_admin_token.strip() != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    ok = await approve_entry(entry_id=entry_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return {"status": "ok", "id": entry_id}
 
 
 @app.get("/health")

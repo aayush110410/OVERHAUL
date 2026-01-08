@@ -255,12 +255,11 @@ function CustomCursor() {
       if (cursorRef.current) {
         cursorRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0) translate(-50%, -50%)`
       }
-      
       rafId.current = requestAnimationFrame(updateCursor)
     }
-    
+
     rafId.current = requestAnimationFrame(updateCursor)
-    
+
     const moveCursor = (e) => {
       mousePos.current = { x: e.clientX, y: e.clientY }
     }
@@ -286,7 +285,7 @@ function CustomCursor() {
     document.addEventListener('mouseout', handleMouseOut, { passive: true })
 
     return () => {
-      cancelAnimationFrame(rafId.current)
+      if (rafId.current) cancelAnimationFrame(rafId.current)
       document.removeEventListener('mousemove', moveCursor)
       document.removeEventListener('mouseover', handleMouseOver)
       document.removeEventListener('mouseout', handleMouseOut)
@@ -486,7 +485,7 @@ function Marquee({ children, speed = 20, reverse = false }) {
 // ============================================
 // MAGNETIC BUTTON
 // ============================================
-function MagneticButton({ children, className, href, to, onClick, external }) {
+function MagneticButton({ children, className, href, to, state, onClick, external }) {
   const ref = useRef(null)
   const [position, setPosition] = useState({ x: 0, y: 0 })
 
@@ -512,7 +511,7 @@ function MagneticButton({ children, className, href, to, onClick, external }) {
         whileTap={{ scale: 0.95 }}
         style={{ display: 'inline-block', willChange: 'transform' }}
       >
-        <Link to={to} className={className} onClick={onClick}>
+        <Link to={to} state={state} className={className} onClick={onClick}>
           {children}
         </Link>
       </motion.div>
@@ -648,6 +647,7 @@ function App() {
               <a href="#journey">ROADMAP</a>
               <Link to="/contact" state={{ skipLoader: false }}>CONTACT</Link>
               <Link to="/founders" state={{ skipLoader: false }} className="nav-link-founders">FOUNDERS</Link>
+              <Link to="/validation" state={{ skipLoader: false }}>VALIDATION</Link>
               <Link to="/support" state={{ skipLoader: false }} className="nav-link-special">SUPPORT US</Link>
             </div>
             
@@ -712,6 +712,7 @@ function App() {
                     <a href="#journey" onClick={() => setMobileMenuOpen(false)}>ROADMAP</a>
                     <Link to="/contact" state={{ skipLoader: false }} onClick={() => setMobileMenuOpen(false)}>CONTACT</Link>
                     <Link to="/founders" state={{ skipLoader: false }} className="mobile-drawer-founders" onClick={() => setMobileMenuOpen(false)}>FOUNDERS</Link>
+                    <Link to="/validation" state={{ skipLoader: false }} onClick={() => setMobileMenuOpen(false)}>VALIDATION</Link>
                     <Link to="/support" state={{ skipLoader: false }} className="mobile-drawer-special" onClick={() => setMobileMenuOpen(false)}>SUPPORT US</Link>
                   </div>
                   <div className="mobile-drawer-cta">
@@ -744,7 +745,7 @@ function App() {
               transition={{ duration: 0.6 }}
             >
               <span className="tag-dot" />
-              EARTH SIMULATION PLATFORM
+              EDUCATION SIMULATION PLATFORM
             </motion.div>
             
             <div className="hero-title-container">
@@ -785,9 +786,8 @@ function App() {
               <MagneticButton className="btn-brutal" to="/demo">
                 LAUNCH SIMULATOR
               </MagneticButton>
-              <MagneticButton className="btn-outline" to="/demo">
-                <span className="btn-icon">▶</span>
-                WATCH DEMO
+              <MagneticButton className="btn-outline" to="/validation">
+                VALIDATION
               </MagneticButton>
             </motion.div>
 
@@ -834,18 +834,18 @@ function App() {
             </RevealText>
             <RevealText>
               <p className="about-text">
-                Overhaul is the next generation Earth simulation platform, 
-                leveraging AI and real-time data to transform the new world.
-                We don't just predict World — We shape it.
+                Overhaul is an education-first earth simulation platform for classrooms and labs,
+                combining traffic simulation, air-quality modeling, and 3D visualization to teach systems thinking.
+                Microsoft AI powered: Azure OpenAI for reasoning + Azure Maps for spatial context.
               </p>
             </RevealText>
           </div>
 
           <div className="about-features">
             {[
-              { num: '01', title: 'REAL-TIME\nSIMULATION', desc: 'Watch traffic flow in real-time with millisecond precision' },
-              { num: '02', title: 'AI-POWERED\nPREDICTIONS', desc: 'Machine learning models trained on millions of scenarios' },
-              { num: '03', title: 'IMPACT\nANALYSIS', desc: 'Understand the ripple effects of every decision' }
+              { num: '01', title: 'REAL-TIME\nSIMULATION', desc: 'Teach mobility dynamics through interactive corridor simulations' },
+              { num: '02', title: 'MICROSOFT\nAI', desc: 'Azure OpenAI reasoning + Azure Maps spatial intelligence' },
+              { num: '03', title: 'IMPACT\nANALYSIS', desc: 'Explore tradeoffs: travel time, exposure, and policy outcomes' }
             ].map((feature, i) => (
               <motion.div 
                 key={i}
@@ -1465,3 +1465,4 @@ function App() {
 }
 
 export default App
+ 
