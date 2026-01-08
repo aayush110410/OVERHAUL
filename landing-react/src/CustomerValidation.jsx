@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import './App.css'
-import { apiFetchJson } from './api/config'
+import { supabase } from './supabase'
 
 // ============================================
 // CUSTOM CURSOR
@@ -347,15 +347,33 @@ export default function CustomerValidation() {
 
   const canSubmit = canProceedStep1 && canProceedStep2
 
-  // Load entries and stats
+  // Load entries and stats from Supabase (same as waitlist)
   async function loadData() {
+    if (!supabase) {
+      console.log('Supabase not configured - demo mode')
+      return
+    }
+    
     try {
-      const [entriesData, statsData] = await Promise.all([
-        apiFetchJson('/validation/entries?page=1&page_size=8'),
-        apiFetchJson('/validation/stats').catch(() => ({ total_entries: 0 }))
-      ])
-      setRecentEntries(Array.isArray(entriesData.items) ? entriesData.items : [])
-      setTotalCount(statsData.total_entries || 0)
+      // Get recent entries
+      const { data: entries, error: entriesError } = await supabase
+        .from('validation_entries')
+        .select('*')
+        .eq('is_approved', true)
+        .order('created_at', { ascending: false })
+        .limit(8)
+      
+      if (entriesError) throw entriesError
+      setRecentEntries(entries || [])
+      
+      // Get total count
+      const { count, error: countError } = await supabase
+        .from('validation_entries')
+        .select('*', { count: 'exact', head: true })
+      
+      if (!countError) {
+        setTotalCount(count || 0)
+      }
     } catch (e) {
       console.error('Failed to load validation data:', e)
     }
@@ -401,29 +419,50 @@ export default function CustomerValidation() {
     setSubmittedMessage('')
 
     try {
-      const payload = {
-        name,
-        email,
-        role,
-        organization,
-        problem_relevance: problemRelevance,
-        has_experience: hasExperience,
-        tools_shortcoming: toolsShortcoming,
-        usage_contexts: usageContexts,
-        learning_tool_value: learningToolValue,
-        interesting_aspect: interestingAspect,
-        suggested_improvement: suggestedImprovement,
-        interest_in_trying: interestInTrying,
+      // If no Supabase, demo mode
+      if (!supabase) {
+        console.log('Demo mode - form data:', { name, email, role, organization })
+        setSubmittedMessage('Thanks for your feedback! (Demo mode)')
+        setName('')
+        setEmail('')
+        setRole('')
+        setOrganization('')
+        setProblemRelevance(5)
+        setHasExperience(null)
+        setToolsShortcoming('')
+        setUsageContexts([])
+        setLearningToolValue('')
+        setInterestingAspect('')
+        setSuggestedImprovement('')
+        setInterestInTrying('')
+        setCurrentStep(1)
+        setSubmitting(false)
+        return
       }
 
-      const resp = await apiFetchJson('/validation/entries', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      })
+      // Insert directly into Supabase (like waitlist)
+      const { error: insertError } = await supabase
+        .from('validation_entries')
+        .insert([{
+          name,
+          email,
+          role,
+          organization,
+          problem_relevance: problemRelevance,
+          has_experience: hasExperience,
+          tools_shortcoming: toolsShortcoming,
+          usage_contexts: JSON.stringify(usageContexts),
+          learning_tool_value: learningToolValue,
+          interesting_aspect: interestingAspect,
+          suggested_improvement: suggestedImprovement,
+          interest_in_trying: interestInTrying,
+          is_approved: true,
+          created_at: new Date().toISOString()
+        }])
 
-      setSubmittedMessage(resp?.is_approved 
-        ? 'Thanks for your feedback! Your response is now visible.' 
-        : 'Thanks! Your response was submitted for review.')
+      if (insertError) throw insertError
+
+      setSubmittedMessage('Thanks for your feedback! Your response is now visible.')
 
       // Reset form
       setName('')
@@ -442,6 +481,7 @@ export default function CustomerValidation() {
 
       await loadData()
     } catch (e2) {
+      console.error('Submission error:', e2)
       setError(e2?.message || 'Submission failed. Please try again.')
     } finally {
       setSubmitting(false)
