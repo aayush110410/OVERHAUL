@@ -8,24 +8,23 @@ import { Line } from 'react-chartjs-2'
 import ReactMarkdown from 'react-markdown'
 import './App.css'
 import { API_BASE } from './api/config'
+import ImagenOverlayControls from './components/ImagenOverlayControls'
 
-function getAzureMapsRasterStyle(subscriptionKey) {
+function getAzureMapsRasterStyle() {
   // Azure Maps Raster Tiles via MapLibre style spec (no OSM/CARTO).
   // Docs: https://learn.microsoft.com/azure/azure-maps/zoom-levels-and-tile-grid
-  // Local dev: use backend tile proxy so the frontend doesn't need Azure credentials.
-  // Production: backend also supports this proxy.
-  const tiles = [
-    `${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256`
-  ]
-
+  // Uses backend tile proxy so the frontend doesn't need Azure credentials.
   return {
     version: 8,
     sources: {
       'azure-road': {
         type: 'raster',
-        tiles,
+        tiles: [
+          `${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256`
+        ],
         tileSize: 256,
-        attribution: '© Microsoft'
+        maxzoom: 20,
+        attribution: '© Microsoft Azure Maps'
       }
     },
     layers: [
@@ -461,8 +460,8 @@ function Demo() {
       let cancelled = false
 
       ;(async () => {
-        // Basemap: Azure Maps raster tiles (Microsoft)
-        const style = getAzureMapsRasterStyle(azureMapsKey)
+        // Basemap: Azure Maps raster tiles (Microsoft) via backend proxy
+        const style = getAzureMapsRasterStyle()
         if (cancelled || mapRef.current) return
 
         mapRef.current = new maplibregl.Map({
@@ -1388,7 +1387,16 @@ function Demo() {
                   >
                     <div className="demo-card-header">
                       <span className="demo-card-title">LIVE CORRIDOR VISUALIZATION</span>
-                      <span className="demo-card-tag">REAL-TIME</span>
+                      <div className="demo-card-header-right">
+                        {/* Imagen 3D Overlay Controls - in header */}
+                        {mapRef.current && (
+                          <ImagenOverlayControls 
+                            map={mapRef.current}
+                            onOverlayGenerated={(result) => console.log('Overlay generated:', result)}
+                          />
+                        )}
+                        <span className="demo-card-tag">REAL-TIME</span>
+                      </div>
                     </div>
                     <div ref={mapContainer} className="demo-map" />
                   </motion.div>

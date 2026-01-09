@@ -89,6 +89,18 @@ except Exception as e:
     TRAFFIC_GOD_LLM_AVAILABLE = False
     print(f"⚠ Traffic God LLM not available: {e}")
 
+# Imagen 3 (Nano Banana Pro) - 3D Overlay Generator
+IMAGEN_OVERLAY_AVAILABLE = False
+try:
+    from imagen_overlay.api_routes import router as imagen_router
+    from imagen_overlay.config import imagen_enabled
+    IMAGEN_OVERLAY_AVAILABLE = imagen_enabled()
+    if IMAGEN_OVERLAY_AVAILABLE:
+        print("✓ Imagen 3 (Nano Banana Pro) overlay generator loaded")
+    else:
+        print("⚠ Imagen 3 configured but API key missing")
+except Exception as e:
+    print(f"⚠ Imagen 3 overlay generator not available: {e}")
 
 
 # --- Simulation / small graph setup (same as in Colab) ---
@@ -2132,6 +2144,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include Imagen 3D overlay router
+if IMAGEN_OVERLAY_AVAILABLE:
+    app.include_router(imagen_router)
 
 from fastapi import Query
 from fastapi import Header
