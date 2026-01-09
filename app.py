@@ -13,13 +13,23 @@ import random
 import math
 import httpx
 
-from azure_utils import (
-    azure_maps_enabled,
-    azure_maps_geocode,
-    azure_maps_reverse_geocode,
-    azure_openai_enabled,
-    load_azure_config,
-)
+# Local dev convenience: load .env if present.
+# By default we allow .env to override inherited shell env so changes take effect
+# without having to chase stale exported variables.
+try:
+    from dotenv import load_dotenv  # type: ignore
+
+    dotenv_override = os.getenv("OVERHAUL_DOTENV_OVERRIDE", "1").strip() != "0"
+    load_dotenv(override=dotenv_override)
+except Exception:
+    pass
+
+from azure_ai.config import azure_maps_enabled, azure_openai_deployment_for, azure_openai_enabled, load_azure_config
+from azure_ai.maps.search import azure_maps_geocode, azure_maps_reverse_geocode
+from azure_ai.maps.tiles import azure_maps_fetch_tile
+from knowledge.index import query_knowledge
+from azure_ai.models.orchestrator import run_domain_models
+from azure_ai.openai.chat import azure_openai_chat_text
 from validation_store import (
     approve_entry,
     create_entry,
@@ -31,34 +41,42 @@ from validation_store import (
 )
 
 from traffic_god_bridge import TrafficGodService
-from agents.aqi_agent import AQIAgent
 
-# Import the new Master Brain (THE primary intelligence layer)
-try:
-    from agents.master_brain import get_master_brain, analyze as master_analyze
-    MASTER_BRAIN_AVAILABLE = True
-    print("✓ Master Brain loaded (physics-based calculations)")
-except Exception as e:
-    MASTER_BRAIN_AVAILABLE = False
-    print(f"⚠ Master Brain not available: {e}")
+# Import the Master Brain (optional). Disabled by default to avoid Gemini deps.
+MASTER_BRAIN_AVAILABLE = False
+if os.getenv("OVERHAUL_ENABLE_MASTER_BRAIN", "0").strip() != "0":
+    try:
+        from agents.master_brain import get_master_brain, analyze as master_analyze
 
-# Import the new LDRAGo Brain (backup)
-try:
-    from agents.ldrago_brain import ldrago_brain, pattern_learner, LDRAgoBrain, NoidaPatternLearner
-    LDRAGO_BRAIN_AVAILABLE = True
-    print("✓ LDRAGo Brain initialized with Gemini")
-except Exception as e:
-    LDRAGO_BRAIN_AVAILABLE = False
-    print(f"⚠ LDRAGo Brain not available: {e}")
+        MASTER_BRAIN_AVAILABLE = True
+        print("✓ Master Brain loaded")
+    except Exception as e:
+        MASTER_BRAIN_AVAILABLE = False
+        print(f"⚠ Master Brain not available: {e}")
 
-# Import the Unified Brain (validates model outputs)
-try:
-    from agents.unified_brain import get_brain as get_unified_brain
-    UNIFIED_BRAIN_AVAILABLE = True
-    print("✓ Unified Brain loaded (model validation enabled)")
-except Exception as e:
-    UNIFIED_BRAIN_AVAILABLE = False
-    print(f"⚠ Unified Brain not available: {e}")
+# LDRAGo Hybrid Brain (Gemini 3 Pro + Azure GPT-5-mini)
+LDRAGO_HYBRID_AVAILABLE = False
+if os.getenv("OVERHAUL_ENABLE_LDRAGO_HYBRID", "1").strip() != "0":
+    try:
+        from agents.ldrago_orchestrator import ldrago_orchestrate, ldrago_quick
+        from agents.gemini_agents import run_all_agents
+        LDRAGO_HYBRID_AVAILABLE = True
+        print("✓ LDRAGo Hybrid Brain loaded (Gemini 3 Pro + Azure GPT-5-mini)")
+    except Exception as e:
+        LDRAGO_HYBRID_AVAILABLE = False
+        print(f"⚠ LDRAGo Hybrid Brain not available: {e}")
+
+# Import the Unified Brain (optional). Disabled by default to avoid Gemini deps.
+UNIFIED_BRAIN_AVAILABLE = False
+if os.getenv("OVERHAUL_ENABLE_UNIFIED_BRAIN", "0").strip() != "0":
+    try:
+        from agents.unified_brain import get_brain as get_unified_brain
+
+        UNIFIED_BRAIN_AVAILABLE = True
+        print("✓ Unified Brain loaded")
+    except Exception as e:
+        UNIFIED_BRAIN_AVAILABLE = False
+        print(f"⚠ Unified Brain not available: {e}")
 
 # Import YOUR Custom Traffic God LLM (NO external APIs!)
 try:
@@ -71,8 +89,7 @@ except Exception as e:
     TRAFFIC_GOD_LLM_AVAILABLE = False
     print(f"⚠ Traffic God LLM not available: {e}")
 
-# Initialize Agents
-aqi_agent = AQIAgent()
+
 
 # --- Simulation / small graph setup (same as in Colab) ---
 # Updated to reflect Noida Sector 61, 62, 63 context
@@ -101,6 +118,7 @@ DATA_DIR = Path(__file__).parent / "data"
 CORRIDOR_ORIGIN = (28.5825, 77.3554)  # Sector-78, Noida (lat, lon)
 CORRIDOR_DEST = (28.6663, 77.3649)    # Vasundhara, Ghaziabad (lat, lon)
 OSRM_BASE_URL = "https://router.project-osrm.org"
+TOMTOM_FLOW_BASE_URL = "https://api.tomtom.com/traffic/services/4"
 
 
 def load_historical_metrics() -> Dict[str, Any]:
@@ -247,32 +265,18 @@ def simulate_once(params, edges_base=EDGES_BASE):
     # Calculate average speed for ML model
     avg_speed = (total_dist_km / (path_tt / 60.0)) if path_tt > 0 else 30.0
     
-    # --- ML-Based AQI Prediction (via AQIAgent) ---
-    # Use the supervised agent to prevent hallucinations
-    pm25 = 0.0
-    try:
-        prediction = aqi_agent.predict({
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "avg_speed": float(avg_speed),
-            "jam_length_km": float(jam_length_km),
-            "jam_count": int(jam_count),
-            "is_diwali_week": False 
-        })
-        
-        pm25 = prediction.get("predicted_aqi", 150.0)
-        
-        # Apply EV reduction factor on top of the ML prediction
-        ev_share = params.get('ev_share_pct', 0.0)
-        if ev_share > 0:
-            # Heuristic: 100% EV adoption reduces local PM2.5 by ~40% (non-tailpipe remains)
-            reduction_factor = 1.0 - (0.4 * (ev_share / 100.0))
-            pm25 = pm25 * reduction_factor
-            
-    except Exception as e:
-        print(f"AQI Agent failed: {e}")
-        # Fallback to heuristic
-        base_pm = 50 + params.get('weather_factor', 0) * 10
-        pm25 = base_pm + (total_vkt / 10000.0) * 100
+    # --- PM2.5 heuristic (no local model files) ---
+    # Deterministic approximation so local runs do not depend on missing .pkl models.
+    base_pm = 55.0 + float(params.get('weather_factor', 0.3)) * 12.0
+    congestion_multiplier = 1.0 + (jam_length_km / 10.0) + (jam_count / 12.0)
+    activity_term = (total_vkt / 10000.0) * 85.0
+    pm25 = (base_pm + activity_term) * congestion_multiplier
+
+    # Apply EV reduction factor (tailpipe only; non-exhaust remains)
+    ev_share = float(params.get('ev_share_pct', 0.0) or 0.0)
+    if ev_share > 0:
+        reduction_factor = 1.0 - (0.4 * (ev_share / 100.0))
+        pm25 = pm25 * reduction_factor
     
     return {"edges": edges, "path_edge_ids": sp['edge_ids'], "avg_travel_time_min": path_tt, "total_vkt": total_vkt, "co2_kg": co2_kg, "pm25": pm25}
 
@@ -650,7 +654,12 @@ def pollution_feature_vector(vkt: float, scenario: Dict[str, Any]) -> List[float
     ]
 
 
+SURROGATES_ENABLED = os.getenv("OVERHAUL_ENABLE_SURROGATES", "0").strip() != "0"
+
+
 def surrogate_available() -> bool:
+    if not SURROGATES_ENABLED:
+        return False
     return all(models.get(key) is not None for key in ("traffic_tt", "traffic_vkt", "pollution"))
 
 
@@ -671,20 +680,22 @@ def enrich_with_surrogate_metrics(result: Dict[str, Any], scenario: Dict[str, An
     return enriched
 
 # --- Model loading (surrogates & meta) ---
-MODEL_PATHS = {
-    "traffic_tt":"traffic_tt_model.pkl",
-    "traffic_vkt":"traffic_vkt_model.pkl",
-    "pollution":"pollution_model.pkl",
-    "meta":"ldra_go_meta_model.pkl"
-}
-models = {}
-for k,p in MODEL_PATHS.items():
-    try:
-        models[k] = joblib.load(p)
-        print("Loaded model:", p)
-    except Exception as e:
-        print("Model not found / failed to load:", p, "->", str(e))
-        models[k] = None
+# Surrogates are optional and disabled by default to avoid noisy missing-file logs.
+models: Dict[str, Any] = {}
+if SURROGATES_ENABLED:
+    MODEL_PATHS = {
+        "traffic_tt": "traffic_tt_model.pkl",
+        "traffic_vkt": "traffic_vkt_model.pkl",
+        "pollution": "pollution_model.pkl",
+        "meta": "ldra_go_meta_model.pkl",
+    }
+    for k, p in MODEL_PATHS.items():
+        try:
+            models[k] = joblib.load(p)
+            print("Loaded model:", p)
+        except Exception as e:
+            print("Model not found / failed to load:", p, "->", str(e))
+            models[k] = None
 
 
 class LLMAdapter:
@@ -807,12 +818,153 @@ class LDRagoController:
         logs = []
         
         # ========================================
-        # PRIMARY PATH: Use Master Brain for EVERYTHING
-        # This ensures physics-based calculations that CANNOT be wrong
+        # Routing policy:
+        # - All user-facing answers are generated by Azure OpenAI (when enabled).
+        # - Local models may still compute metrics, but they must not be the narrator.
         # ========================================
         master_result = None
+        cfg = load_azure_config()
+        azure_ok = azure_openai_enabled(cfg)
+        azure_only = os.getenv("OVERHAUL_AZURE_ONLY", "1").strip() != "0"
+        prefer_azure = azure_ok and (os.getenv("OVERHAUL_PREFER_AZURE", "1").strip() != "0")
+        if azure_only:
+            if not azure_ok:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "Azure OpenAI is required (OVERHAUL_AZURE_ONLY=1) but is not configured. "
+                        "Set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_KEY, and AZURE_OPENAI_DEPLOYMENT."
+                    ),
+                )
+            prefer_azure = True
+
+        # ========================================
+        # LDRAGo FAST Mode - Local CSV Data + Azure (5-10 seconds)
+        # Uses trained NCR data from CSV files for instant grounding
+        # ========================================
+        use_ldrago_hybrid = (
+            LDRAGO_HYBRID_AVAILABLE
+            and os.getenv("OVERHAUL_USE_LDRAGO_HYBRID", "1").strip() != "0"
+        )
         
-        if MASTER_BRAIN_AVAILABLE:
+        if use_ldrago_hybrid:
+            try:
+                from agents.ldrago_orchestrator import ldrago_fast
+                
+                logs.append("🚀 LDRAGo Fast Mode activated (Local CSV + Azure GPT-5-mini)")
+                
+                # Collect live context
+                live_context_task = asyncio.create_task(self.collect_live_context())
+                live_context = await live_context_task
+                
+                # Build context
+                agent_context = {
+                    "location": "Delhi NCR (Delhi, Noida, Ghaziabad)",
+                    "live_speed": live_context.get("traffic", {}).get("speed_kmh"),
+                    "pm25": live_context.get("aqi", {}).get("pm25") or live_context.get("aqi", {}).get("latest_pm25"),
+                    "travel_time": live_context.get("travel", {}).get("travel_time_min"),
+                }
+                
+                # Run FAST orchestrator (no Gemini agents, uses local CSV data)
+                hybrid_result = await ldrago_fast(
+                    query=prompt,
+                    context=agent_context,
+                )
+                
+                # Extract logs from orchestrator
+                if hybrid_result.get("logs"):
+                    logs.extend(hybrid_result["logs"])
+                
+                # Build response from hybrid result
+                summary = hybrid_result.get("response", "Analysis complete.")
+                completed_at = datetime.utcnow().isoformat() + "Z"
+                
+                # Get NCR data for impact cards
+                ncr_data = hybrid_result.get("ncr_data", {})
+                
+                # Build impact cards from NCR CSV data
+                impact_cards = []
+                
+                # AQI cards for each city
+                for city in ["Delhi", "Noida", "Ghaziabad"]:
+                    city_aqi = ncr_data.get("aqi", {}).get(city, {})
+                    if city_aqi:
+                        impact_cards.append({
+                            "metric": f"{city} AQI",
+                            "value": str(int(city_aqi.get("aqi", 0))),
+                            "delta": f"PM2.5: {city_aqi.get('pm25', 'N/A')} µg/m³",
+                            "direction": "negative" if city_aqi.get("aqi", 0) > 200 else "neutral",
+                            "category": city_aqi.get("category", "Unknown"),
+                        })
+                
+                # Traffic cards for each city
+                for city in ["Delhi", "Noida", "Ghaziabad"]:
+                    city_traffic = ncr_data.get("traffic", {}).get(city, {})
+                    if city_traffic:
+                        impact_cards.append({
+                            "metric": f"{city} Traffic",
+                            "value": f"{city_traffic.get('avg_speed_kmph', 'N/A')} km/h",
+                            "delta": f"Congestion: {city_traffic.get('congestion_pct', 'N/A')}%",
+                            "direction": "negative" if city_traffic.get("congestion_pct", 0) > 50 else "positive",
+                            "ev_pct": city_traffic.get("ev_percentage", 0),
+                        })
+                
+                logs.append(f"✅ Analysis complete in {hybrid_result.get('duration_seconds', 0):.1f}s")
+                
+                outputs = {
+                    "tldr": summary,
+                    "confidenceLevel": "high",
+                    "impactCards": impact_cards,
+                    "domains": {},
+                    "narrative": [],  # Don't duplicate - summary has full content
+                    "explanation": [],
+                    "mapOverlays": {},
+                    "logs": logs,
+                    "started_at": started_at,
+                    "completed_at": completed_at,
+                    "liveContext": live_context,
+                    "ncrData": ncr_data,  # Include NCR data for frontend
+                    "brainInsights": {
+                        "orchestrator": "LDRAGo Fast",
+                        "models_used": hybrid_result.get("models_used", {}),
+                        "data_source": "Local CSV (NCR AQI & Traffic 2024-2026)",
+                    }
+                }
+                
+                return {
+                    "summary": summary,
+                    "baseline": {},
+                    "ranked": [],
+                    "edges_geojson": {"type": "FeatureCollection", "features": []},
+                    "infrastructure": {"type": "FeatureCollection", "features": []},
+                    "pollution_hotspots": {"type": "FeatureCollection", "features": []},
+                    "live": live_context,
+                    "manifest": {
+                        "run_id": str(uuid.uuid4()),
+                        "mode": "ldrago_hybrid",
+                        "prompt": prompt,
+                        "started_at": started_at,
+                        "completed_at": completed_at,
+                        "models": hybrid_result.get("models_used", {}),
+                        "runtime_s": time.time() - start,
+                    },
+                    "outputs": outputs,
+                }
+                
+            except Exception as e:
+                import traceback
+                logs.append(f"⚠ LDRAGo Hybrid error: {str(e)[:150]}, falling back to legacy...")
+                logs.append(f"Traceback: {traceback.format_exc()[:300]}")
+                # Fall through to legacy pipeline
+
+        use_master_brain = (
+            MASTER_BRAIN_AVAILABLE
+            and (req.mode or "").strip().lower() != "deep"
+            and not prefer_azure
+            and not azure_only
+        )
+
+        if use_master_brain:
             try:
                 logs.append("🧠 Master Brain activated (physics-based)")
                 master_result = await master_analyze(prompt)
@@ -933,55 +1085,17 @@ class LDRagoController:
                 master_result = None
         
         # ========================================
-        # FALLBACK: Legacy pipeline (only if Master Brain fails)
+        # Legacy pipeline (computations + grounded context)
         # ========================================
         logs.append("Using legacy analysis pipeline...")
         
-        # Legacy: Use LDRAGo Brain if available
-        brain_result = None
-        thought = None
-        plan = None
-        
-        if LDRAGO_BRAIN_AVAILABLE:
-            try:
-                logs.append("🧠 LDRAGo Brain activated (Gemini-powered)")
-                
-                # Phase 1: THINK - Understand the prompt deeply
-                logs.append("📊 Phase 1: Deep prompt analysis...")
-                thought = await ldrago_brain.think(prompt)
-                logs.append(f"✓ Understood: {thought.get('understood_intent', 'Processing...')[:100]}")
-                
-                # Get date-specific context from pattern learner
-                date_context = pattern_learner.get_context_for_date()
-                logs.append(f"📅 Context: {date_context.get('day_of_week', 'Unknown')}, Expected AQI: {date_context.get('expected_aqi', 'N/A'):.0f}")
-                
-                # Phase 2: PLAN - Create execution strategy
-                logs.append("📋 Phase 2: Creating intelligent execution plan...")
-                plan = await ldrago_brain.plan(thought, {"date_context": date_context, "patterns": pattern_learner.get_all_patterns()})
-                logs.append(f"✓ Plan: {plan.get('plan_summary', 'Standard analysis')[:100]}")
-                
-                brain_result = {"thought": thought, "plan": plan}
-                
-            except Exception as e:
-                logs.append(f"⚠ LDRAGo Brain partial failure: {str(e)[:50]}, falling back...")
-                brain_result = None
-        else:
-            logs.append("Using standard analysis pipeline (LDRAGo Brain not available)")
+        # Gemini LDRAGo brain is disabled; we rely on computed metrics + Azure narration.
         
         # --- Continue with data collection and simulation ---
         logs.append("⚡ Phase 3: Executing analysis...")
 
-        # Extract signals (enhanced with brain insights if available)
+        # Extract signals
         signals = extract_prompt_signals(prompt)
-        if thought:
-            # Enhance signals with brain's understanding
-            for entity in thought.get("key_entities", []):
-                if "%" in str(entity) and "ev" in prompt.lower():
-                    try:
-                        pct = float(re.search(r"(\d+)", str(entity)).group(1))
-                        signals["ev_share_pct"] = pct
-                    except:
-                        pass
         
         logs.append(f"Analyzed signals: EV={signals.get('ev_share_pct', 0)}%, Focus={signals.get('economic_focus', 'general')}")
         
@@ -1034,6 +1148,35 @@ class LDRagoController:
             aqi_live = live_context["aqi"]
             baseline_metrics["pm25"] = aqi_live.get("latest_pm25", baseline_metrics.get("pm25"))
             logs.append(f"Synced with live OpenAQ sensors: {aqi_live.get('latest_pm25')} µg/m³")
+
+        # --- Local knowledge base (PDF/CSV RAG) ---
+        try:
+            kb_matches = query_knowledge(prompt, top_k=4)
+        except Exception:
+            kb_matches = []
+
+        if kb_matches:
+            live_context = dict(live_context)
+            sources = list(live_context.get("sources", []))
+            sources.append(
+                {
+                    "name": "Local Knowledge Base",
+                    "detail": "Workspace PDFs/CSVs indexed locally (sentence-transformers; keyword fallback)",
+                }
+            )
+            live_context["sources"] = sources
+            live_context["knowledge"] = {
+                "matches": [
+                    {
+                        "source_path": m.chunk.source_path,
+                        "page": m.chunk.page_number,
+                        "score": round(float(m.score), 4),
+                        "text": m.chunk.text,
+                    }
+                    for m in kb_matches
+                ]
+            }
+            logs.append(f"📚 Grounded with {len(kb_matches)} local knowledge matches")
 
         # --- 3. Optimization / Ranking Phase ---
         logs.append("Evaluating intervention candidates against predictive models...")
@@ -1119,6 +1262,11 @@ class LDRagoController:
         travel_delta = pct_delta(baseline_metrics["avg_travel_time_min"], candidate_result["avg_travel_time_min"])
         pm_delta = pct_delta(baseline_metrics["pm25"], candidate_result["pm25"])
         gdp_uplift_pct = clamp(signals.get("ev_share_pct", 0.0) * 0.12 + travel_delta * 0.4, -5.0, 12.0)
+
+        # --- Domain models (weather / behavior / policy-econ) ---
+        # DISABLED: GPT-5-mini reasoning model is too slow for multiple calls
+        domain_models = None
+        logs.append("⏭ Domain models skipped (performance optimization)")
         
         deep_bundle = None
         synthesis = None
@@ -1189,46 +1337,14 @@ class LDRagoController:
                 logs.append(f"⚠ Validation error: {str(e)[:50]}")
                 unified_result = None
 
-        # ========================================
-        # Use LDRAGo Brain for intelligent synthesis
-        # ========================================
-        if LDRAGO_BRAIN_AVAILABLE and thought:
-            try:
-                logs.append("🎯 Phase 4: LDRAGo Brain synthesizing insights...")
-                
-                execution_results = {
-                    "baseline_metrics": baseline_metrics,
-                    "candidate_metrics": candidate_result,
-                    "travel_delta_pct": travel_delta,
-                    "pm_delta_pct": pm_delta,
-                    "gdp_uplift_pct": gdp_uplift_pct,
-                    "traffic_summary": f"Travel time: {baseline_metrics['avg_travel_time_min']:.1f}min baseline → {candidate_result['avg_travel_time_min']:.1f}min with intervention",
-                    "aqi_summary": f"PM2.5: {baseline_metrics['pm25']:.0f} → {candidate_result['pm25']:.0f} µg/m³",
-                    "live_data": live_context,
-                    "date_context": pattern_learner.get_context_for_date() if pattern_learner else {},
-                    "unified_validation": unified_result.get("result") if unified_result else None,
-                }
-                
-                synthesis = await ldrago_brain.synthesize(prompt, thought, plan, execution_results)
-                
-                # Generate intelligent narrative
-                intelligent_summary = await ldrago_brain.generate_narrative(synthesis, mode="concise")
-                
-                logs.append("✓ LDRAGo Brain synthesis complete")
-                
-            except Exception as e:
-                logs.append(f"⚠ Brain synthesis error: {str(e)[:50]}, using fallback")
-                synthesis = None
-                intelligent_summary = None
+        # Gemini synthesis disabled.
         
         # Use Unified Brain synthesis if LDRAGo failed
         if unified_result and not synthesis:
             synthesis = unified_result.get("result", {}).get("synthesis")
 
-        # Use brain-generated summary if available, otherwise fall back to old method
-        if synthesis and 'intelligent_summary' in dir() and intelligent_summary:
-            summary = intelligent_summary
-        elif unified_result and unified_result.get("result", {}).get("synthesis", {}).get("executive_summary"):
+        # Prefer validated synthesis if available, otherwise use deterministic summary.
+        if unified_result and unified_result.get("result", {}).get("synthesis", {}).get("executive_summary"):
             summary = unified_result["result"]["synthesis"]["executive_summary"]
         else:
             summary = self.llm.compose_summary(
@@ -1242,6 +1358,158 @@ class LDRagoController:
                 live_context,
             )
 
+        llm_provider = "rules"
+        # Final narrative: Azure OpenAI (required when OVERHAUL_AZURE_ONLY=1).
+        if prefer_azure:
+            try:
+                # Try configured deployment(s) first; if Azure returns DeploymentNotFound,
+                # optionally try additional fallbacks.
+                deployments_to_try: List[str] = []
+                for d in [
+                    azure_openai_deployment_for("ldrago", cfg),
+                    cfg.azure_openai_deployment_ldrago,
+                    cfg.azure_openai_deployment,
+                ]:
+                    if d and d not in deployments_to_try:
+                        deployments_to_try.append(d)
+
+                env_fallbacks = (os.getenv("AZURE_OPENAI_DEPLOYMENT_FALLBACKS", "") or "").strip()
+                if env_fallbacks:
+                    for d in [x.strip() for x in env_fallbacks.split(",") if x.strip()]:
+                        if d not in deployments_to_try:
+                            deployments_to_try.append(d)
+
+                system = (
+                    "You are OVERHAUL's traffic analyst for Delhi NCR (Delhi, Noida, Ghaziabad). Give a brief, helpful analysis covering all three cities. "
+                    "Use the provided data. Be concise - respond in 2-3 short paragraphs."
+                )
+                # Simplified context for faster response
+                simple_context = (
+                    f"Query: {prompt}\n\n"
+                    f"Current Traffic Speed: {live_context.get('traffic', {}).get('speed_kmh', 'N/A')} km/h\n"
+                    f"Current AQI (PM2.5): {live_context.get('aqi', {}).get('pm25', 'N/A')} µg/m³\n"
+                    f"Travel Time Change: {travel_delta:+.1f}%\n"
+                    f"PM2.5 Change: {pm_delta:+.1f}%\n"
+                    f"GDP Impact: {gdp_uplift_pct:+.1f}%\n\n"
+                    f"Scenario: EV share {signals.get('ev_share_pct', 0)}%, "
+                    f"Green coverage {signals.get('green_coverage_pct', 0)}%"
+                )
+                last_exc: Optional[Exception] = None
+                for deployment in deployments_to_try:
+                    try:
+                        summary = await azure_openai_chat_text(
+                            prompt=simple_context,
+                            system=system,
+                            cfg=cfg,
+                            deployment=deployment,
+                            max_output_tokens=2000,
+                        )
+                        llm_provider = "azure_openai"
+                        logs.append(f"✓ Azure OpenAI narrative generated (deployment={deployment})")
+                        last_exc = None
+                        break
+                    except Exception as exc:
+                        last_exc = exc
+                        msg = str(exc)
+                        if "DeploymentNotFound" in msg or "Error code: 404" in msg:
+                            logs.append(f"⚠ Azure deployment not found: {deployment}")
+                            continue
+                        raise
+
+                if last_exc is not None and llm_provider != "azure_openai":
+                    raise last_exc
+            except Exception as e:
+                logs.append(
+                    "⚠ Azure OpenAI narrative failed: "
+                    + f"{str(e)[:160]} | "
+                    + "Fix: set AZURE_OPENAI_DEPLOYMENT to your Azure *deployment name* (not model name)."
+                )
+                if azure_only:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=(
+                            "Azure OpenAI call failed (OVERHAUL_AZURE_ONLY=1). "
+                            "Check AZURE_OPENAI_DEPLOYMENT and that the deployment exists in your Azure resource."
+                        ),
+                    )
+                llm_provider = "rules_fallback"
+
+        # If Azure is unavailable/misconfigured, optionally return a deep, structured
+        # report in Deep mode (deterministic, grounded in computed metrics).
+        allow_rules_fallback = os.getenv("OVERHAUL_ALLOW_RULES_FALLBACK", "1").strip() != "0"
+        if allow_rules_fallback and (req.mode or "").strip().lower() == "deep" and llm_provider != "azure_openai":
+            if not summary or len(summary.strip()) < 900:
+                travel_live = (live_context or {}).get("travel") or {}
+                aqi_live = (live_context or {}).get("aqi") or {}
+                traffic_live = (travel_live.get("traffic") or {}) if isinstance(travel_live, dict) else {}
+
+                def _fmt(x: Any, unit: str = "") -> str:
+                    if x is None:
+                        return "unknown"
+                    try:
+                        if isinstance(x, (int, float)):
+                            return f"{x:.2f}{unit}" if abs(float(x)) < 100 else f"{x:.0f}{unit}"
+                    except Exception:
+                        pass
+                    return f"{x}{unit}" if unit else str(x)
+
+                sources = []
+                for s in ((live_context or {}).get("sources") or []):
+                    if not s:
+                        continue
+                    if isinstance(s, dict):
+                        label = s.get("name") or s.get("source") or s.get("label")
+                        if not label:
+                            try:
+                                label = json.dumps(s, ensure_ascii=False)
+                            except Exception:
+                                label = str(s)
+                        s = label
+                    else:
+                        s = str(s)
+                    if s not in sources:
+                        sources.append(s)
+
+                summary = (
+                    "Executive summary\n"
+                    f"- Corridor: {signals.get('corridor_name') or signals.get('corridor') or 'Sector-78 → Vasundhara'}\n"
+                    f"- Live travel (OSRM): {_fmt(travel_live.get('travel_time_min'), ' min')} over {_fmt(travel_live.get('distance_km'), ' km')}\n"
+                    f"- Live PM2.5: {_fmt(aqi_live.get('latest_pm25'), ' µg/m³')} (source={aqi_live.get('source') or 'unknown'})\n"
+                    f"- Live traffic (TomTom): speed={_fmt((traffic_live.get('currentSpeedKmh') or traffic_live.get('current_speed_kmh')), ' km/h')}, confidence={_fmt(traffic_live.get('confidence'))}\n"
+                    "\n"
+                    "Live context\n"
+                    f"- Travel time: {_fmt(travel_live.get('travel_time_min'), ' min')}\n"
+                    f"- Distance: {_fmt(travel_live.get('distance_km'), ' km')}\n"
+                    f"- PM2.5: {_fmt(aqi_live.get('latest_pm25'), ' µg/m³')} (Δ{_fmt(aqi_live.get('delta_pm25'))} over window)\n"
+                    "\n"
+                    "Baseline vs Scenario (key metrics)\n"
+                    "Metric | Baseline | Scenario | Δ\n"
+                    "---|---:|---:|---:\n"
+                    f"Avg travel time (min) | {_fmt(baseline_metrics.get('avg_travel_time_min'))} | {_fmt(candidate_result.get('avg_travel_time_min'))} | {_fmt(candidate_result.get('avg_travel_time_min') - baseline_metrics.get('avg_travel_time_min') if isinstance(candidate_result.get('avg_travel_time_min'), (int,float)) and isinstance(baseline_metrics.get('avg_travel_time_min'), (int,float)) else None)}\n"
+                    f"PM2.5 (µg/m³) | {_fmt(baseline_metrics.get('pm25'))} | {_fmt(candidate_result.get('pm25'))} | {_fmt(candidate_result.get('pm25') - baseline_metrics.get('pm25') if isinstance(candidate_result.get('pm25'), (int,float)) and isinstance(baseline_metrics.get('pm25'), (int,float)) else None)}\n"
+                    f"CO₂ (kg) | {_fmt(baseline_metrics.get('co2_kg'))} | {_fmt(candidate_result.get('co2_kg'))} | {_fmt(candidate_result.get('co2_kg') - baseline_metrics.get('co2_kg') if isinstance(candidate_result.get('co2_kg'), (int,float)) and isinstance(baseline_metrics.get('co2_kg'), (int,float)) else None)}\n"
+                    "\n"
+                    "What drives the change (mechanisms)\n"
+                    "- If the scenario does not modify demand/capacity/enforcement inputs, baseline and scenario will be similar by design.\n"
+                    "- Live travel and traffic conditions can differ from model baseline because baseline is a scenario metric while live values are current measurements.\n"
+                    "\n"
+                    "Recommendations (prioritized, quantified where possible)\n"
+                    "1) Peak-hour signal re-timing at dominant junctions: target a 5–12% travel-time reduction if queue spillback is present.\n"
+                    "2) Bus priority / enforcement on the main corridor: aim for 3–8% corridor speed uplift (verify with TomTom speed trend + OSRM travel).\n"
+                    "3) Freight time-windowing + curb management: reduce stop-and-go; expect PM2.5 exposure reduction concentrated at hotspots.\n"
+                    "4) EV + e-rickshaw charging + routing guidance: reduces localized tailpipe emissions; quantify via fleet share and VKT shift.\n"
+                    "5) Targeted dust control + roadside greening at hotspots: reduces near-road PM increments; verify with sensor deltas.\n"
+                    "\n"
+                    "Risks / uncertainty\n"
+                    "- If Azure narration is unavailable, this is a deterministic report (see logs).\n"
+                    "\n"
+                    "Sources used\n"
+                    + ("- " + "\n- ".join(sources) + "\n" if sources else "- OSRM\n- AQI provider\n- TomTom (if enabled)\n")
+                )
+
+                if llm_provider in {"rules", "rules_fallback"}:
+                    llm_provider = "rules_detailed"
+
         mode = "deep" if req.mode.lower() == "deep" else "fast"
         completed_at = datetime.utcnow().isoformat() + "Z"
         
@@ -1252,20 +1520,21 @@ class LDRagoController:
             "confidenceLevel": "high" if mode == "deep" else "medium",
             "impactCards": impact_cards,
             "domains": domain_rollups,
-            "narrative": narratives,
+            "narrative": [] if llm_provider == "azure_openai" else narratives,  # Don't duplicate Azure response
             "explanation": build_explanations(ranked, infra),
             "mapOverlays": build_map_overlays(baseline_metrics, candidate_result, best_candidate["name"] if best_candidate else "Plan"),
             "logs": logs,
             "started_at": started_at,
             "completed_at": completed_at,
             "liveContext": live_context,
+            "llm_provider": llm_provider,
         }
         
         # Add brain insights - prefer Unified Brain synthesis if available
         if unified_result and unified_result.get("result", {}).get("synthesis"):
             unified_synthesis = unified_result["result"]["synthesis"]
             outputs["brainInsights"] = {
-                "understanding": thought.get("understood_intent", "") if thought else "Analyzed with Unified Brain",
+                "understanding": unified_synthesis.get("understanding") or "Analyzed with Unified Brain",
                 "keyFindings": unified_synthesis.get("key_findings", []),
                 "detailedAnalysis": unified_synthesis.get("detailed_analysis", {}),
                 "dataTransparency": {
@@ -1280,7 +1549,7 @@ class LDRagoController:
             outputs["confidenceLevel"] = unified_result["result"].get("confidence", "medium")
         elif synthesis:
             outputs["brainInsights"] = {
-                "understanding": thought.get("understood_intent", "") if thought else "",
+                "understanding": synthesis.get("understanding", ""),
                 "keyFindings": synthesis.get("key_findings", []),
                 "detailedAnalysis": synthesis.get("detailed_analysis", {}),
                 "dataTransparency": synthesis.get("data_transparency", {}),
@@ -1312,6 +1581,7 @@ class LDRagoController:
             "live_sources": live_context.get("sources", []),
             "runtime_s": time.time() - start,
             "timestamp": time.time(),
+            "llm_provider": llm_provider,
         }
 
         return {
@@ -1433,14 +1703,19 @@ class LDRagoController:
                 "name": "OSRM",
                 "detail": "router.project-osrm.org live routing"
             })
+            if isinstance(live_travel, dict) and live_travel.get("traffic"):
+                sources.append({
+                    "name": "TomTom",
+                    "detail": "TomTom Traffic Flow Segment (mid-route)"
+                })
 
         if not isinstance(aqi_raw, Exception) and aqi_raw:
             aqi_summary = summarize_aqi_results(aqi_raw)
             if aqi_summary:
                 live_aqi = aqi_summary
                 sources.append({
-                    "name": "OpenAQ",
-                    "detail": "Latest PM2.5 monitors within 15km"
+                    "name": str(aqi_summary.get("source") or "aqi"),
+                    "detail": "PM2.5 series near corridor"
                 })
 
         return {"travel": live_travel, "aqi": live_aqi, "sources": sources}
@@ -1498,12 +1773,62 @@ def rank_candidates_meta(scenario):
 # --- Live internet / external data helpers ---
 
 OPENAQ_BASE = "https://api.openaq.org/v2"
+OPEN_METEO_AIR_QUALITY_BASE = "https://air-quality-api.open-meteo.com/v1/air-quality"
+
 
 async def fetch_aqi_history(lat: float, lon: float, radius_m: int = 15000) -> Dict[str, Any]:
+    """Fetch recent PM2.5 measurements near a coordinate.
+
+    Provider priority:
+    1) Open-Meteo Air Quality (no key; model-based gridded estimates)
+    2) OpenAQ (ground-station aggregator; may be unavailable depending on API lifecycle)
+    3) Synthetic fallback (clearly labeled)
+
+    Returns a dict with a stable shape compatible with `summarize_aqi_results`:
+    {"results": [{"date": {"utc": ...}, "value": ...}, ...], "_meta": {...}}
     """
-    Example: fetch recent PM2.5 measurements from OpenAQ near a coordinate.
-    You can change this to any AQI provider you prefer.
-    """
+
+    # 1) Open-Meteo Air Quality (CAMS-based, hourly)
+    try:
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "hourly": "pm2_5",
+            "past_days": 2,
+            "timezone": "UTC",
+        }
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(OPEN_METEO_AIR_QUALITY_BASE, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+
+        hourly = data.get("hourly") or {}
+        times = hourly.get("time") or []
+        values = hourly.get("pm2_5") or []
+        if times and values and len(times) == len(values):
+            results: List[Dict[str, Any]] = []
+            for t, v in zip(times, values):
+                if v is None:
+                    continue
+                stamp = str(t)
+                # Open-Meteo returns UTC times without trailing 'Z'.
+                if stamp.endswith("Z") is False:
+                    stamp = stamp + "Z"
+                results.append({"date": {"utc": stamp}, "value": float(v)})
+
+            if results:
+                return {
+                    "results": results,
+                    "_meta": {
+                        "synthetic": False,
+                        "source": "open_meteo_air_quality",
+                        "model": "CAMS",
+                    },
+                }
+    except Exception as e:
+        print(f"Warning: Open-Meteo AQ fetch failed ({e}). Trying OpenAQ next.")
+
+    # 2) OpenAQ (fallback)
     params = {
         "coordinates": f"{lat},{lon}",
         "radius": radius_m,
@@ -1519,22 +1844,21 @@ async def fetch_aqi_history(lat: float, lon: float, radius_m: int = 15000) -> Di
             return resp.json()
     except Exception as e:
         print(f"Warning: OpenAQ fetch failed ({e}). Using fallback synthetic data.")
-        # Fallback: Generate synthetic curve based on typical diurnal patterns
+        # 3) Synthetic fallback: Generate a diurnal curve (labeled synthetic)
         now = datetime.utcnow()
         mock_results = []
         for i in range(48):
-            t = now - timedelta(hours=47-i)
+            t = now - timedelta(hours=47 - i)
             # Peak at 9am and 9pm local (UTC+5.5)
             local_hour = (t.hour + 5.5) % 24
             base_val = 120
-            # Two peaks
-            val = base_val + 40 * math.exp(-((local_hour - 9)**2)/8) + 60 * math.exp(-((local_hour - 21)**2)/8)
+            val = base_val + 40 * math.exp(-((local_hour - 9) ** 2) / 8) + 60 * math.exp(-((local_hour - 21) ** 2) / 8)
             noise = random.uniform(-5, 5)
-            mock_results.append({
-                "date": {"utc": t.isoformat() + "Z"},
-                "value": max(10, val + noise)
-            })
-        return {"results": mock_results}
+            mock_results.append({"date": {"utc": t.isoformat() + "Z"}, "value": max(10, val + noise)})
+        return {
+            "results": mock_results,
+            "_meta": {"synthetic": True, "source": "synthetic_fallback", "reason": str(e)[:200]},
+        }
 
 
 def summarize_aqi_results(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -1556,12 +1880,17 @@ def summarize_aqi_results(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     values = [pt["pm25"] for pt in series]
     mean_val = sum(values) / len(values)
     trend = values[-1] - values[0]
+    meta = raw.get("_meta", {}) if isinstance(raw, dict) else {}
+    is_synth = bool(meta.get("synthetic"))
+    source = meta.get("source")
     return {
         "latest_pm25": float(latest["pm25"]),
         "latest_timestamp": latest["datetime"],
         "mean_pm25": round(mean_val, 2),
         "delta_pm25": round(trend, 2),
         "series": series[-48:],  # cap to roughly two days of hourly data
+        "source": ("synthetic_fallback" if is_synth else (source or "openaq")),
+        "is_synthetic": is_synth,
     }
 
 
@@ -1573,7 +1902,7 @@ async def fetch_osrm_corridor_metrics(
     origin_lat, origin_lon = origin
     dest_lat, dest_lon = dest
     coords = f"{origin_lon},{origin_lat};{dest_lon},{dest_lat}"
-    params = {"overview": "full", "geometries": "geojson"}
+    params = {"overview": "full", "geometries": "geojson", "steps": "true"}
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.get(f"{OSRM_BASE_URL}/route/v1/driving/{coords}", params=params)
         resp.raise_for_status()
@@ -1585,6 +1914,31 @@ async def fetch_osrm_corridor_metrics(
     duration_min = route.get("duration", 0.0) / 60.0
     distance_km = route.get("distance", 0.0) / 1000.0
     geometry = route.get("geometry") or {}
+
+    # Build a graph-ready cumulative curve from OSRM steps.
+    # This avoids fake time-series: it's real route structure (distance→time accumulation).
+    cumulative_points: List[Dict[str, Any]] = []
+    try:
+        cum_km = 0.0
+        cum_min = 0.0
+        for leg in route.get("legs", []) or []:
+            for step in leg.get("steps", []) or []:
+                step_km = float(step.get("distance", 0.0)) / 1000.0
+                step_min = float(step.get("duration", 0.0)) / 60.0
+                if step_km <= 0 and step_min <= 0:
+                    continue
+                cum_km += max(step_km, 0.0)
+                cum_min += max(step_min, 0.0)
+                name = (step.get("name") or "").strip() or None
+                cumulative_points.append(
+                    {
+                        "distance_km": round(cum_km, 3),
+                        "time_min": round(cum_min, 3),
+                        "name": name,
+                    }
+                )
+    except Exception:
+        cumulative_points = []
     geojson = {
         "type": "FeatureCollection",
         "features": [
@@ -1598,13 +1952,113 @@ async def fetch_osrm_corridor_metrics(
             }
         ],
     }
+
+    traffic_flow = None
+    try:
+        traffic_flow = await fetch_tomtom_flow_for_geometry(geometry)
+    except Exception:
+        traffic_flow = None
     return {
         "travel_time_min": round(duration_min, 2),
         "distance_km": round(distance_km, 2),
         "geojson": geojson,
+        "traffic": traffic_flow,
+        "graph": {
+            "kind": "cumulative_route",
+            "x": "distance_km",
+            "y": "time_min",
+            "points": cumulative_points,
+            "source": "OSRM steps",
+        },
         "source": "router.project-osrm.org",
         "fetched_at": datetime.utcnow().isoformat() + "Z",
     }
+
+
+def _midpoint_from_linestring_geometry(geometry: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+    """Return (lat, lon) midpoint from an OSRM GeoJSON LineString geometry."""
+
+    if not isinstance(geometry, dict):
+        return None
+    if geometry.get("type") != "LineString":
+        return None
+    coords = geometry.get("coordinates")
+    if not isinstance(coords, list) or not coords:
+        return None
+    mid = coords[len(coords) // 2]
+    if not isinstance(mid, (list, tuple)) or len(mid) < 2:
+        return None
+    lon = float(mid[0])
+    lat = float(mid[1])
+    return (lat, lon)
+
+
+async def fetch_tomtom_flow_for_point(
+    *,
+    lat: float,
+    lon: float,
+    zoom: int = 12,
+    api_key: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Fetch TomTom flow segment data near a point.
+
+    Uses TomTom Traffic Flow Segment Data API. Returns a compact, stable payload
+    suitable for grounding (no secrets).
+    """
+
+    key = (api_key or os.environ.get("TOMTOM_API_KEY") or "").strip()
+    if not key:
+        return None
+
+    url = f"{TOMTOM_FLOW_BASE_URL}/flowSegmentData/absolute/10/json"
+    params = {
+        "key": key,
+        "point": f"{lat},{lon}",
+        "zoom": int(zoom),
+        "unit": "KMPH",
+    }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.get(url, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+
+    seg = (data or {}).get("flowSegmentData") or {}
+    if not isinstance(seg, dict) or not seg:
+        return None
+
+    streets = seg.get("currentStreets")
+    if isinstance(streets, list):
+        streets = [str(s) for s in streets if s]
+    else:
+        streets = None
+
+    return {
+        "provider": "tomtom_flow_segment",
+        "point": {"lat": float(lat), "lon": float(lon)},
+        "current_speed_kmph": seg.get("currentSpeed"),
+        "free_flow_speed_kmph": seg.get("freeFlowSpeed"),
+        "current_travel_time_s": seg.get("currentTravelTime"),
+        "free_flow_travel_time_s": seg.get("freeFlowTravelTime"),
+        "confidence": seg.get("confidence"),
+        "road_closure": seg.get("roadClosure"),
+        "frc": seg.get("frc"),
+        "current_streets": streets,
+        "source": "api.tomtom.com",
+        "fetched_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+
+async def fetch_tomtom_flow_for_geometry(geometry: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Fetch TomTom flow segment for a representative point along a route geometry."""
+
+    mid = _midpoint_from_linestring_geometry(geometry)
+    if not mid:
+        # fallback: midpoint between corridor anchors
+        lat = float((CORRIDOR_ORIGIN[0] + CORRIDOR_DEST[0]) / 2.0)
+        lon = float((CORRIDOR_ORIGIN[1] + CORRIDOR_DEST[1]) / 2.0)
+        return await fetch_tomtom_flow_for_point(lat=lat, lon=lon)
+    lat, lon = mid
+    return await fetch_tomtom_flow_for_point(lat=float(lat), lon=float(lon))
 
 
 async def fetch_demo_route_geojson() -> Dict[str, Any]:
@@ -1730,6 +2184,10 @@ async def integrations_status():
 
     cfg = load_azure_config()
     return {
+        "tomtom_traffic": {
+            "enabled": bool((os.environ.get("TOMTOM_API_KEY") or "").strip()),
+            "has_key": bool((os.environ.get("TOMTOM_API_KEY") or "").strip()),
+        },
         "azure_maps": {
             "enabled": azure_maps_enabled(cfg),
             "has_key": bool(cfg.azure_maps_key),
@@ -1739,6 +2197,11 @@ async def integrations_status():
             "has_endpoint": bool(cfg.azure_openai_endpoint),
             "has_key": bool(cfg.azure_openai_key),
             "has_deployment": bool(cfg.azure_openai_deployment),
+            "deployment": cfg.azure_openai_deployment,
+            "deployment_ldrago": cfg.azure_openai_deployment_ldrago,
+            "deployment_weather": cfg.azure_openai_deployment_weather,
+            "deployment_behavior": cfg.azure_openai_deployment_behavior,
+            "deployment_policy_econ": cfg.azure_openai_deployment_policy_econ,
             "api_version": cfg.azure_openai_api_version,
         },
     }
@@ -1756,16 +2219,11 @@ async def live_aqi(
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"AQI provider error: {exc}") from exc
 
-    results = raw.get("results", [])
-    series = [
-        {
-            "datetime": r.get("date", {}).get("utc"),
-            "pm25": r.get("value"),
-        }
-        for r in results
-        if r.get("value") is not None
-    ]
-    return {"series": series}
+    summary = summarize_aqi_results(raw)
+    if not summary:
+        return {"series": []}
+    # Backward compatible: keep `series` at top-level.
+    return {"series": summary.get("series", []), **summary}
 
 
 @app.get("/live/route")
@@ -1776,6 +2234,13 @@ async def live_route():
     Currently returns a demo stub. Replace with a real routing API call
     inside fetch_demo_route_geojson() when you are ready.
     """
+    try:
+        live = await fetch_osrm_corridor_metrics()
+        if live and live.get("geojson"):
+            return live["geojson"]
+    except Exception:
+        pass
+
     geojson = await fetch_demo_route_geojson()
     return geojson
 

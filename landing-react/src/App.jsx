@@ -1443,9 +1443,9 @@ function App() {
               </div>
               <div className="footer-col">
                 <h4>FOLLOW</h4>
-                <a href="https://x.com/overhaulai" target="_blank" rel="noopener noreferrer">Twitter</a>
-                <a href="https://www.linkedin.com/company/overhaul-ai" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-                <a href="https://github.com/aayush110410/OVERHAUL" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <a href="#">Twitter</a>
+                <a href="https://www.linkedin.com/company/overhaul-ai">LinkedIn</a>
+                <a href="#">GitHub</a>
                 <a href="#">Discord</a>
               </div>
             </div>

@@ -18,12 +18,8 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 import google.generativeai as genai
 
-from azure_utils import (
-    azure_openai_chat_json,
-    azure_openai_chat_text,
-    azure_openai_enabled,
-    load_azure_config,
-)
+from azure_ai.config import azure_openai_enabled, load_azure_config
+from azure_ai.openai.chat import azure_openai_chat_json, azure_openai_chat_text
 
 # Configure Gemini (optional fallback)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -38,7 +34,10 @@ class LDRAgoBrain:
     Core Principles:
     - Every prompt deserves careful analysis before action
     - The system should understand WHAT the user wants, WHY they want it
+    - the system shoudl decide HOW to get it using available tools
+    - The system should caluclate the best possible answer but also it shoudl be accurate and factually correct.
     - Resources should be fetched based on need, not a fixed pipeline
+    - Resources should be cross-validated for consistency
     - Responses should be grounded in real data, not generic fluff
     """
     
@@ -140,8 +139,7 @@ Think step by step. What is the user really asking for?"""
                         "Return ONLY a valid JSON object matching the requested schema."
                     ),
                     cfg=self.azure_cfg,
-                    temperature=0.2,
-                    max_output_tokens=900,
+                    max_output_tokens=4000,
                 )
                 thought["raw_prompt"] = prompt
                 thought["thinking_timestamp"] = datetime.now().isoformat()
@@ -252,8 +250,7 @@ Create an efficient plan that gets the user what they need."""
                         "Return ONLY a valid JSON object matching the requested schema."
                     ),
                     cfg=self.azure_cfg,
-                    temperature=0.2,
-                    max_output_tokens=900,
+                    max_output_tokens=4000,
                 )
                 plan["thought"] = thought
                 plan["planning_timestamp"] = datetime.now().isoformat()
@@ -369,8 +366,7 @@ Be specific, use numbers from the data, and be honest about uncertainties."""
                         "Return ONLY a valid JSON object matching the requested schema."
                     ),
                     cfg=self.azure_cfg,
-                    temperature=0.2,
-                    max_output_tokens=1200,
+                    max_output_tokens=4000,
                 )
                 synthesis["synthesis_timestamp"] = datetime.now().isoformat()
                 return synthesis
@@ -469,8 +465,7 @@ Write naturally, like an expert briefing a colleague. Use specific numbers. No J
                         "Return plain text only."
                     ),
                     cfg=self.azure_cfg,
-                    temperature=0.3,
-                    max_output_tokens=500,
+                    max_output_tokens=4000,
                 )
             except Exception:
                 pass

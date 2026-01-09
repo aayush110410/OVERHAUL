@@ -5,13 +5,37 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
+import ReactMarkdown from 'react-markdown'
 import './App.css'
 import { API_BASE } from './api/config'
-import { cartoLightOsmStyle } from './maps/styles/cartoLightOsmStyle'
 
-// Live demo basemap switch:
-// - Default: Azure Maps (Microsoft)
-// - Rollback: swap to cartoDarkOsmStyle
+function getAzureMapsRasterStyle(subscriptionKey) {
+  // Azure Maps Raster Tiles via MapLibre style spec (no OSM/CARTO).
+  // Docs: https://learn.microsoft.com/azure/azure-maps/zoom-levels-and-tile-grid
+  // Local dev: use backend tile proxy so the frontend doesn't need Azure credentials.
+  // Production: backend also supports this proxy.
+  const tiles = [
+    `${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256`
+  ]
+
+  return {
+    version: 8,
+    sources: {
+      'azure-road': {
+        type: 'raster',
+        tiles,
+        tileSize: 256,
+        attribution: '© Microsoft'
+      }
+    },
+    layers: [
+      { id: 'background', type: 'background', paint: { 'background-color': '#0b1220' } },
+      { id: 'azure-road', type: 'raster', source: 'azure-road' }
+    ]
+  }
+}
+
+// Live demo basemap: Azure Maps (Microsoft) via backend proxy
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -293,13 +317,15 @@ function Demo() {
   
   // Demo State
   const [prompt, setPrompt] = useState('')
-  const [mode, setMode] = useState('fast')
+  const [mode, setMode] = useState('fast')  // Analysis mode: 'fast' or 'deep'
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisComplete, setAnalysisComplete] = useState(false)
   const [systemStatus, setSystemStatus] = useState('System Online')
   const [currentTime, setCurrentTime] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [confidenceLevel, setConfidenceLevel] = useState('ready')
+  const [analysisProgress, setAnalysisProgress] = useState(0)
+  const [progressMessage, setProgressMessage] = useState('')
   
   // Results State
   const [stats, setStats] = useState({
@@ -310,6 +336,7 @@ function Demo() {
   })
   const [summary, setSummary] = useState('')
   const [summaryHtml, setSummaryHtml] = useState('Configure your traffic scenario using the control panel. The system will analyze impacts on congestion, air quality, and emissions using advanced SUMO simulation and RAG-enhanced intelligence.')
+  const [markdownResponse, setMarkdownResponse] = useState('')
   const [recommendations, setRecommendations] = useState([])
   const [travelChartData, setTravelChartData] = useState(null)
   const [aqiChartData, setAqiChartData] = useState(null)
@@ -434,8 +461,8 @@ function Demo() {
       let cancelled = false
 
       ;(async () => {
-        // Basemap: OpenStreetMap (CARTO light) — no Mapbox dependency.
-        const style = cartoLightOsmStyle
+        // Basemap: Azure Maps raster tiles (Microsoft)
+        const style = getAzureMapsRasterStyle(azureMapsKey)
         if (cancelled || mapRef.current) return
 
         mapRef.current = new maplibregl.Map({
@@ -549,7 +576,7 @@ function Demo() {
   }, [loading])
 
   // Helper function for fetch with timeout and retry
-  const fetchWithRetry = async (url, options = {}, retries = 3, timeout = 30000) => {
+  const fetchWithRetry = async (url, options = {}, retries = 3, timeout = 300000) => {
     for (let i = 0; i < retries; i++) {
       try {
         const controller = new AbortController()
@@ -602,19 +629,23 @@ function Demo() {
       const series = Array.isArray(data.series) ? data.series.filter(pt => pt.datetime && pt.pm25 != null) : []
       const latest = series.length ? series[series.length - 1] : null
       
+      const aqiSource = (data && data.source) ? String(data.source) : 'AQI'
+      const synth = !!(data && data.is_synthetic)
       mergeLiveContext({
         aqi: {
           series: series.slice(-48),
           latest_pm25: latest ? latest.pm25 : null,
-          latest_timestamp: latest ? latest.datetime : null
+          latest_timestamp: latest ? latest.datetime : null,
+          source: aqiSource,
+          is_synthetic: synth
         },
-        sources: [{ name: 'OpenAQ', detail: 'Direct corridor sensor bubble (live endpoint)' }]
+        sources: [{ name: aqiSource, detail: synth ? 'AQI series (synthetic fallback)' : 'AQI series (live endpoint)' }]
       })
       
       setLiveSources(prev => {
-        const exists = prev.find(s => s.name === 'OpenAQ')
+        const exists = prev.find(s => s.name === aqiSource)
         if (exists) return prev
-        return [...prev, { name: 'OpenAQ', detail: 'Air quality data' }]
+        return [...prev, { name: aqiSource, detail: 'Air quality data' }]
       })
 
       // Update AQI chart with live data
@@ -688,8 +719,31 @@ function Demo() {
     if (isAnalyzing) return
 
     setIsAnalyzing(true)
-    setSystemStatus(mode === 'deep' ? 'Deep Analysis Running' : 'Fast Analysis Running')
+    setAnalysisProgress(0)
+    setProgressMessage('Connecting to AI...')
+    setSystemStatus('Analysis Running')
     setErrorMessage('')
+
+    // Time-based progress - starts slow, accelerates naturally
+    const startTime = Date.now()
+    const expectedDuration = 15000 // 15 seconds expected
+    
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime
+      // Logarithmic progress - fast at start, slows down approaching 95%
+      const rawProgress = Math.min(95, (elapsed / expectedDuration) * 100 * 1.2)
+      const smoothProgress = Math.round(rawProgress * 0.9 + Math.log10(elapsed / 1000 + 1) * 15)
+      const cappedProgress = Math.min(95, smoothProgress)
+      
+      setAnalysisProgress(cappedProgress)
+      
+      // Dynamic messages based on actual progress
+      if (cappedProgress < 20) setProgressMessage('Connecting to AI...')
+      else if (cappedProgress < 40) setProgressMessage('Loading NCR data...')
+      else if (cappedProgress < 60) setProgressMessage('Analyzing traffic patterns...')
+      else if (cappedProgress < 80) setProgressMessage('Processing air quality...')
+      else setProgressMessage('Generating report...')
+    }, 200)
 
     try {
       const response = await fetchWithRetry(`${API_BASE}/chat`, {
@@ -697,16 +751,20 @@ function Demo() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
-          mode,
+          mode: mode,  // Use state variable for analysis mode
           scenario: {
             title: 'Prompt-driven analysis',
-            region: 'Sector-78 to Vasundhara',
+            region: 'Delhi NCR',
             intervention: 'prompt_only',
             horizon_months: 12,
             parameters: {}
           }
         })
       }, 3, 60000) // 60 second timeout for chat
+
+      clearInterval(progressInterval)
+      setAnalysisProgress(100)
+      setProgressMessage('Analysis complete!')
 
       if (!response.ok) {
         const text = await response.text()
@@ -715,6 +773,13 @@ function Demo() {
 
       const data = await response.json()
       console.log('Backend response:', data)
+
+      // Extract markdown response from backend (ldrago_fast returns this)
+      if (data.outputs?.response) {
+        setMarkdownResponse(data.outputs.response)
+      } else if (data.summary) {
+        setMarkdownResponse(data.summary)
+      }
 
       // Merge live context
       mergeLiveContext(data.live || {})
@@ -764,7 +829,7 @@ function Demo() {
           },
           pm25: {
             value: pmVal ? `${pmVal.toFixed(1)} µg/m³` : '--',
-            source: sourceLabel(!!live?.aqi, 'OpenAQ'),
+            source: sourceLabel(!!live?.aqi, live?.aqi?.source || 'AQI'),
             delta: airDelta ? `${airDelta > 0 ? '+' : ''}${airDelta.toFixed(1)}%` : null
           },
           vkt: {
@@ -992,29 +1057,43 @@ function Demo() {
       }
 
       // Update charts
-      const hours = ['0h', '2h', '4h', '6h', '8h', '10h', '12h']
       const live = data.live || liveContext
-      const baselineTravel = (live?.travel?.travel_time_min ?? data.baseline?.avg_travel_time_min) || 25
-      const candidateTravel = data.ranked?.[0]?.avg_travel_time_min || baselineTravel * 0.85
-      
-      const travelData = hours.map((_, i) => {
-        const progress = i / (hours.length - 1)
-        return baselineTravel - (baselineTravel - candidateTravel) * progress
-      })
 
-      setTravelChartData({
-        labels: hours,
-        datasets: [{
-          data: travelData,
-          borderColor: '#CCFF00',
-          backgroundColor: 'rgba(204, 255, 0, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 4,
-          pointBackgroundColor: '#CCFF00'
-        }]
-      })
+      // Travel chart: prefer OSRM step-derived cumulative curve (distance → time)
+      const routeGraphPoints = live?.travel?.graph?.points
+      if (Array.isArray(routeGraphPoints) && routeGraphPoints.length > 1) {
+        const labels = routeGraphPoints.map(pt => `${Number(pt.distance_km).toFixed(1)} km`)
+        const values = routeGraphPoints.map(pt => Number(pt.time_min))
+        setTravelChartData({
+          labels,
+          datasets: [{
+            data: values,
+            borderColor: '#CCFF00',
+            backgroundColor: 'rgba(204, 255, 0, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0
+          }]
+        })
+      } else {
+        // No real curve available: show a simple baseline vs scenario comparison (no fake trend)
+        const baselineTravel = (live?.travel?.travel_time_min ?? data.baseline?.avg_travel_time_min) || 25
+        const candidateTravel = data.ranked?.[0]?.avg_travel_time_min
+        setTravelChartData({
+          labels: ['Baseline', 'Scenario'],
+          datasets: [{
+            data: [baselineTravel, candidateTravel ?? baselineTravel],
+            borderColor: '#CCFF00',
+            backgroundColor: 'rgba(204, 255, 0, 0.1)',
+            borderWidth: 2,
+            fill: false,
+            tension: 0,
+            pointRadius: 4,
+            pointBackgroundColor: '#CCFF00'
+          }]
+        })
+      }
 
       // AQI Chart
       if (live?.aqi?.series?.length) {
@@ -1038,22 +1117,18 @@ function Demo() {
           }]
         })
       } else {
+        // No real AQI series available: show baseline vs scenario (no fake trend)
         const baselinePM = data.baseline?.pm25 || 150
-        const candidatePM = data.ranked?.[0]?.pm25 || baselinePM * 0.9
-        const aqiData = hours.map((_, i) => {
-          const progress = i / (hours.length - 1)
-          return baselinePM - (baselinePM - candidatePM) * progress
-        })
-
+        const candidatePM = data.ranked?.[0]?.pm25
         setAqiChartData({
-          labels: hours,
+          labels: ['Baseline', 'Scenario'],
           datasets: [{
-            data: aqiData,
+            data: [baselinePM, candidatePM ?? baselinePM],
             borderColor: '#FF4D00',
             backgroundColor: 'rgba(255, 77, 0, 0.1)',
             borderWidth: 2,
-            fill: true,
-            tension: 0.4,
+            fill: false,
+            tension: 0,
             pointRadius: 4,
             pointBackgroundColor: '#FF4D00'
           }]
@@ -1083,6 +1158,8 @@ function Demo() {
     } catch (error) {
       console.error('Analysis error:', error)
       setErrorMessage(error.message || 'Failed to connect to backend. Ensure FastAPI is running on port 8000.')
+      setAnalysisProgress(0)
+      setProgressMessage('')
     } finally {
       setIsAnalyzing(false)
       setSystemStatus('System Online')
@@ -1360,21 +1437,15 @@ function Demo() {
                     transition={{ delay: 0.5, duration: 0.6 }}
                   >
                     <div className="demo-card-header">
-                      <span className="demo-card-title">AI-GENERATED ANALYSIS</span>
-                      <span className={`demo-card-badge ${confidenceLevel}`}>
-                        {analysisComplete ? `${confidenceLevel.toUpperCase()} CONFIDENCE` : 'READY'}
-                      </span>
+                      <span className="demo-card-title">AI ANALYSIS</span>
                     </div>
-                    <div className="demo-summary">
-                      <div dangerouslySetInnerHTML={{ __html: summaryHtml }} />
+                    <div className="demo-summary markdown-content">
+                      {markdownResponse ? (
+                        <ReactMarkdown>{markdownResponse}</ReactMarkdown>
+                      ) : (
+                        <p className="demo-placeholder">{summaryHtml}</p>
+                      )}
                     </div>
-                    {liveSources.length > 0 && (
-                      <div className="demo-live-sources">
-                        {liveSources.map((src, i) => (
-                          <span key={i} className="demo-live-chip" title={src.detail}>{src.name}</span>
-                        ))}
-                      </div>
-                    )}
                   </motion.div>
 
                   {/* Charts */}
@@ -1420,29 +1491,6 @@ function Demo() {
                     </motion.div>
                   </div>
 
-                  {/* Recommendations */}
-                  <motion.div 
-                    className="demo-card"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7, duration: 0.6 }}
-                  >
-                    <div className="demo-card-header">
-                      <span className="demo-card-title">RECOMMENDED INTERVENTIONS</span>
-                      <span className="demo-card-subtitle">AI-ranked by effectiveness</span>
-                    </div>
-                    <div className="demo-recommendations">
-                      {recommendations.length > 0 ? (
-                        recommendations.map((rec, i) => (
-                          <RecommendationCard key={i} index={i} {...rec} />
-                        ))
-                      ) : (
-                        <div className="demo-rec-placeholder">
-                          Run analysis to view recommendations
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
                 </div>
 
                 {/* Right Column - Control Panel */}
@@ -1470,10 +1518,10 @@ function Demo() {
                       />
                     </div>
 
-                    {/* Mode Toggle */}
+                    {/* Analysis Mode Selection */}
                     <div className="demo-input-group">
                       <label className="demo-input-label">ANALYSIS MODE</label>
-                      <div className="demo-mode-toggle">
+                      <div className="demo-mode-buttons">
                         <button 
                           className={`demo-mode-btn ${mode === 'fast' ? 'active' : ''}`}
                           onClick={() => setMode('fast')}
@@ -1503,6 +1551,28 @@ function Demo() {
                         'RUN ANALYSIS'
                       )}
                     </motion.button>
+
+                    {/* Progress Bar */}
+                    {isAnalyzing && (
+                      <motion.div 
+                        className="demo-progress-container"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="demo-progress-bar">
+                          <motion.div 
+                            className="demo-progress-fill"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${analysisProgress}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                        <div className="demo-progress-info">
+                          <span className="demo-progress-message">{progressMessage}</span>
+                          <span className="demo-progress-percent">{analysisProgress}%</span>
+                        </div>
+                      </motion.div>
+                    )}
 
                     {/* Error Message */}
                     {errorMessage && (

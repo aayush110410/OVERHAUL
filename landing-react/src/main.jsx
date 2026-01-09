@@ -1,6 +1,6 @@
 import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 
@@ -17,10 +17,29 @@ const TermsConditions = lazy(() => import('./Policies.jsx').then(m => ({ default
 const RefundsPolicy = lazy(() => import('./Policies.jsx').then(m => ({ default: m.RefundsPolicy })))
 const ShippingPolicy = lazy(() => import('./Policies.jsx').then(m => ({ default: m.ShippingPolicy })))
 
+// Loading component for lazy-loaded pages
+const PageLoader = () => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100vh',
+    background: '#0a0a0a',
+    color: '#c8ff00',
+    fontFamily: 'JetBrains Mono, monospace',
+    fontSize: '1.2rem'
+  }}>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ marginBottom: '1rem', fontSize: '2rem' }}>⚡</div>
+      <div>LOADING OVERHAUL...</div>
+    </div>
+  </div>
+)
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <Suspense fallback={null}>
+      <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/demo" element={<Demo />} />
@@ -34,6 +53,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/terms" element={<TermsConditions />} />
           <Route path="/refunds" element={<RefundsPolicy />} />
           <Route path="/shipping" element={<ShippingPolicy />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
