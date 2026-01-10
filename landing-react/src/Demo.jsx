@@ -10,11 +10,13 @@ import './App.css'
 import { API_BASE } from './api/config'
 import ImagenOverlayControls from './components/ImagenOverlayControls'
 
-// Check if Azure Maps is available via backend
+// Check if Azure Maps is available via backend - tries a small tile fetch
 async function checkAzureMapsAvailable() {
   try {
-    const resp = await fetch(`${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`, { method: 'HEAD' })
-    return resp.ok
+    const resp = await fetch(`${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`)
+    // Check if response is actually an image (not JSON error)
+    const contentType = resp.headers.get('content-type') || ''
+    return resp.ok && contentType.includes('image')
   } catch {
     return false
   }
