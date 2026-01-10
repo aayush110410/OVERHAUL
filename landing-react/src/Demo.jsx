@@ -10,10 +10,18 @@ import './App.css'
 import { API_BASE } from './api/config'
 import ImagenOverlayControls from './components/ImagenOverlayControls'
 
+// Check if Azure Maps is available via backend
+async function checkAzureMapsAvailable() {
+  try {
+    const resp = await fetch(`${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`, { method: 'HEAD' })
+    return resp.ok
+  } catch {
+    return false
+  }
+}
+
 function getAzureMapsRasterStyle() {
-  // Azure Maps Raster Tiles via MapLibre style spec (no OSM/CARTO).
-  // Docs: https://learn.microsoft.com/azure/azure-maps/zoom-levels-and-tile-grid
-  // Uses backend tile proxy so the frontend doesn't need Azure credentials.
+  // Azure Maps Raster Tiles via backend proxy
   return {
     version: 8,
     sources: {
@@ -34,7 +42,31 @@ function getAzureMapsRasterStyle() {
   }
 }
 
-// Live demo basemap: Azure Maps (Microsoft) via backend proxy
+function getFallbackMapStyle() {
+  // Dark-themed CartoDB tiles as fallback when Azure Maps unavailable
+  return {
+    version: 8,
+    sources: {
+      'carto-dark': {
+        type: 'raster',
+        tiles: [
+          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+        ],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: '© OpenStreetMap contributors © CARTO'
+      }
+    },
+    layers: [
+      { id: 'background', type: 'background', paint: { 'background-color': '#0b1220' } },
+      { id: 'carto-dark', type: 'raster', source: 'carto-dark' }
+    ]
+  }
+}
+
+// Live demo basemap: Azure Maps (Microsoft) via backend proxy, with CartoDB fallback
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -460,8 +492,10 @@ function Demo() {
       let cancelled = false
 
       ;(async () => {
-        // Basemap: Azure Maps raster tiles (Microsoft) via backend proxy
-        const style = getAzureMapsRasterStyle()
+        // Check if Azure Maps is available, fallback to CartoDB dark tiles
+        const azureAvailable = await checkAzureMapsAvailable()
+        const style = azureAvailable ? getAzureMapsRasterStyle() : getFallbackMapStyle()
+        
         if (cancelled || mapRef.current) return
 
         mapRef.current = new maplibregl.Map({
