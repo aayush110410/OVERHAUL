@@ -380,6 +380,7 @@ function Demo() {
   // Map ref
   const mapContainer = useRef(null)
   const mapRef = useRef(null)
+  const [mapReady, setMapReady] = useState(false)  // Track when map is loaded for conditional rendering
 
   // Merge live context helper
   const mergeLiveContext = useCallback((live) => {
@@ -598,6 +599,9 @@ function Demo() {
           // Fetch initial live data
           fetchLiveRoute()
           fetchLiveAQI()
+          
+          // Mark map as ready for conditional component rendering
+          setMapReady(true)
         })
       })()
     }
@@ -606,6 +610,7 @@ function Demo() {
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
+        setMapReady(false)
       }
     }
   }, [loading])
@@ -1425,7 +1430,7 @@ function Demo() {
                       <span className="demo-card-title">LIVE CORRIDOR VISUALIZATION</span>
                       <div className="demo-card-header-right">
                         {/* Imagen 3D Overlay Controls - in header */}
-                        {mapRef.current && (
+                        {mapReady && mapRef.current && (
                           <ImagenOverlayControls 
                             map={mapRef.current}
                             onOverlayGenerated={(result) => console.log('Overlay generated:', result)}
