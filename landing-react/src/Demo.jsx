@@ -13,7 +13,12 @@ import ImagenOverlayControls from './components/ImagenOverlayControls'
 // Check if Azure Maps is available via backend - tries a small tile fetch
 async function checkAzureMapsAvailable() {
   try {
-    const resp = await fetch(`${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+    const resp = await fetch(`${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`, {
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
     // Check if response is actually an image (not JSON error)
     const contentType = resp.headers.get('content-type') || ''
     return resp.ok && contentType.includes('image')
@@ -497,6 +502,7 @@ function Demo() {
       ;(async () => {
         // Check if Azure Maps is available, fallback to CartoDB dark tiles
         const azureAvailable = await checkAzureMapsAvailable()
+        console.log('[Map] Azure Maps available:', azureAvailable, 'API_BASE:', API_BASE)
         const style = azureAvailable ? getAzureMapsRasterStyle() : getFallbackMapStyle()
         
         if (cancelled || mapRef.current) return
@@ -508,6 +514,11 @@ function Demo() {
           zoom: 12.8,
           pitch: 50,
           bearing: -15
+        })
+        
+        // Log map tile errors for debugging
+        mapRef.current.on('error', (e) => {
+          console.error('[Map] Error:', e.error?.message || e)
         })
 
         // If the container was animated/hidden during mount, MapLibre can render a blank canvas.
