@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './styles.css';
 import { addFlyoverLayer, removeFlyoverLayer } from './FlyoverLayer';
+import ImagenFlyoverVisuals from './ImagenFlyoverVisuals';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiYWF5dXNoMTMxNHIiLCJhIjoiY21mYmRqa3p3MWZvMjJsczY3bXR2bTl0diJ9.QM8zGV5wgRj5AjFskklefw';
 mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -1148,6 +1149,19 @@ export default function FlyoverSim() {
                 DIRECT ROUTE OVER OBSTACLES | ARCHITECT OPTIMIZED
               </div>
             </div>
+          )}
+
+          {/* Imagen 3 AI Visualizations */}
+          {stats && (
+            <ImagenFlyoverVisuals 
+              flyoverData={{
+                flyover_lanes: stats.lanes,
+                flyover_width_m: parseFloat(stats.width),
+                flyover_height_m: parseFloat(stats.height),
+                road: { type: 'arterial' }
+              }}
+              locationName={origin || 'Delhi'}
+            />
           )}
         </aside>
       </main>

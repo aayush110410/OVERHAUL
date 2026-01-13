@@ -658,3 +658,194 @@ body {
 .flyover-map.pin-mode canvas {
   cursor: crosshair !important;
 }
+
+/* ============================================ */
+/* IMAGEN 3 (NANO BANANA PRO) FLYOVER VISUALS  */
+/* ============================================ */
+
+.imagen-panel {
+  background: rgba(20, 20, 25, 0.95);
+  border: 1px solid rgba(204, 255, 0, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.imagen-panel.disabled {
+  opacity: 0.6;
+}
+
+.imagen-panel.loading {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 24px;
+}
+
+.imagen-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(204, 255, 0, 0.15);
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.imagen-logo {
+  font-size: 20px;
+}
+
+.imagen-badge {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+
+.imagen-status {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.imagen-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.imagen-tab {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.imagen-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.imagen-tab.active {
+  background: rgba(204, 255, 0, 0.15);
+  border-color: rgba(204, 255, 0, 0.4);
+  color: #CCFF00;
+}
+
+.imagen-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.imagen-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.imagen-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.imagen-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.imagen-btn.primary {
+  background: rgba(204, 255, 0, 0.15);
+  border-color: rgba(204, 255, 0, 0.4);
+  color: #CCFF00;
+}
+
+.imagen-btn.primary:hover:not(:disabled) {
+  background: rgba(204, 255, 0, 0.25);
+}
+
+.imagen-btn.secondary {
+  background: rgba(0, 200, 255, 0.1);
+  border-color: rgba(0, 200, 255, 0.3);
+  color: #00c8ff;
+}
+
+.imagen-result {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.imagen-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.imagen-texture {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.imagen-caption {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.imagen-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.imagen-compare-item {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.imagen-compare-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.imagen-compare-label.before {
+  background: rgba(255, 77, 0, 0.9);
+  color: white;
+}
+
+.imagen-compare-label.after {
+  background: rgba(0, 255, 136, 0.9);
+  color: #0a0a0a;
+}
+

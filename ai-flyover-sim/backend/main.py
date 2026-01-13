@@ -351,6 +351,99 @@ def plan_coords(req: PlanCoordsRequest):
     }
 
 
+# ============================================================
+# IMAGEN 3 (NANO BANANA PRO) ENDPOINTS - 3D Flyover Visuals
+# ============================================================
+
+import imagen_flyover
+
+class ImagenConceptRequest(BaseModel):
+    location_name: str
+    flyover_lanes: int = 2
+    flyover_width_m: float = 9.0
+    flyover_height_m: float = 8.5
+    road_type: str = "arterial"
+    view_type: str = "aerial"  # "aerial" or "perspective"
+
+
+class ImagenTextureRequest(BaseModel):
+    texture_type: str = "concrete_deck"  # "concrete_deck", "pillar_surface", "barrier_metal"
+
+
+class ImagenBeforeAfterRequest(BaseModel):
+    location_name: str
+    flyover_lanes: int = 2
+    view: str = "after"  # "before" or "after"
+
+
+@app.get("/imagen/status")
+def imagen_status():
+    """Check if Imagen 3 (Nano Banana Pro) is available."""
+    return {
+        "enabled": imagen_flyover.is_imagen_available(),
+        "model": "imagen-3.0-generate-002",
+        "name": "Nano Banana Pro",
+        "capabilities": [
+            "flyover_concept_render",
+            "texture_generation",
+            "before_after_comparison"
+        ]
+    }
+
+
+@app.post("/imagen/flyover/concept")
+def generate_concept(req: ImagenConceptRequest):
+    """Generate a conceptual visualization of the proposed flyover using Imagen 3."""
+    if not imagen_flyover.is_imagen_available():
+        raise HTTPException(status_code=503, detail="Imagen API not configured")
+    
+    result = imagen_flyover.generate_flyover_concept(
+        location_name=req.location_name,
+        flyover_lanes=req.flyover_lanes,
+        flyover_width_m=req.flyover_width_m,
+        flyover_height_m=req.flyover_height_m,
+        road_type=req.road_type,
+        view_type=req.view_type
+    )
+    
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to generate concept image")
+    
+    return result
+
+
+@app.post("/imagen/flyover/texture")
+def generate_texture(req: ImagenTextureRequest):
+    """Generate realistic textures for 3D flyover models using Imagen 3."""
+    if not imagen_flyover.is_imagen_available():
+        raise HTTPException(status_code=503, detail="Imagen API not configured")
+    
+    result = imagen_flyover.generate_flyover_texture(texture_type=req.texture_type)
+    
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to generate texture")
+    
+    return result
+
+
+@app.post("/imagen/flyover/before-after")
+def generate_before_after(req: ImagenBeforeAfterRequest):
+    """Generate before/after comparison views using Imagen 3."""
+    if not imagen_flyover.is_imagen_available():
+        raise HTTPException(status_code=503, detail="Imagen API not configured")
+    
+    result = imagen_flyover.generate_before_after_view(
+        location_name=req.location_name,
+        flyover_spec={"flyover_lanes": req.flyover_lanes},
+        view=req.view
+    )
+    
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to generate visualization")
+    
+    return result
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
