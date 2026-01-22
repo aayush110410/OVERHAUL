@@ -79,14 +79,14 @@ if os.getenv("OVERHAUL_ENABLE_UNIFIED_BRAIN", "0").strip() != "0":
         print(f"⚠ Unified Brain not available: {e}")
 
 # Import YOUR Custom Traffic God LLM (NO external APIs!)
+TRAFFIC_GOD_LLM: Any = None
+TRAFFIC_GOD_LLM_AVAILABLE = False
 try:
     from new_traffic_god.simple_llm import TrafficGodLLM
     TRAFFIC_GOD_LLM = TrafficGodLLM()
     TRAFFIC_GOD_LLM_AVAILABLE = True
     print("✓ Traffic God LLM loaded (YOUR custom model, NO external APIs)")
 except Exception as e:
-    TRAFFIC_GOD_LLM = None
-    TRAFFIC_GOD_LLM_AVAILABLE = False
     print(f"⚠ Traffic God LLM not available: {e}")
 
 # Imagen 3 (Nano Banana Pro) - 3D Overlay Generator

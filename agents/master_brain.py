@@ -362,7 +362,7 @@ If user asks about multiple things, capture all of them."""
         except Exception as e:
             return self._fallback_understand(prompt, categories)
     
-    def _fallback_understand(self, prompt: str, categories: List[str] = None) -> Dict[str, Any]:
+    def _fallback_understand(self, prompt: str, categories: Optional[List[str]] = None) -> Dict[str, Any]:
         """Regex-based fallback for understanding."""
         
         prompt_lower = prompt.lower()
@@ -551,8 +551,8 @@ If user asks about multiple things, capture all of them."""
         baseline_aqi = self.baselines["aqi"]
         baseline_speed = self.baselines["speed_kmh"]
         
-        aqi_improvement = 0
-        traffic_improvement = 0
+        aqi_improvement: float = 0.0
+        traffic_improvement: float = 0.0
         explanation = ""
         
         if intervention_type == "metro":
@@ -599,7 +599,7 @@ If user asks about multiple things, capture all of them."""
             "explanation": explanation
         }
     
-    async def answer_general_question(self, prompt: str, context: Dict = None) -> Dict[str, Any]:
+    async def answer_general_question(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """
         Handle ANY question - like a world-class professor with access to the internet.
         Uses Gemini with grounding to provide intelligent, fact-based, comprehensive answers.
@@ -800,8 +800,8 @@ Respond in this JSON format:
             print(f"[MasterBrain] General question error: {e}")
             return None
     
-    async def generate_comprehensive_response(self, understanding: Dict, calculations: Dict, 
-                                               research: Dict = None, hypothetical: Dict = None) -> Dict[str, Any]:
+    async def generate_comprehensive_response(self, understanding: Dict[str, Any], calculations: Dict[str, Any], 
+                                               research: Optional[Dict[str, Any]] = None, hypothetical: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Generate a comprehensive, ChatGPT-like response.
         Combines calculations, research, and creative analysis.

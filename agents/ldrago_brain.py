@@ -41,7 +41,7 @@ class LDRAgoBrain:
     - Responses should be grounded in real data, not generic fluff
     """
     
-    def __init__(self, data_context: Dict[str, Any] = None):
+    def __init__(self, data_context: Optional[Dict[str, Any]] = None):
         # Provider selection:
         # - Primary: Azure OpenAI Service (if configured)
         # - Fallback: Gemini (if configured)
@@ -58,7 +58,7 @@ class LDRAgoBrain:
             # Gemini fallback
             self.model = genai.GenerativeModel('gemini-3-pro-preview')
         self.data_context = data_context or {}
-        self.conversation_history = []
+        self.conversation_history: List[Dict[str, str]] = []
         
         # Available capabilities the brain can use
         self.capabilities = {
@@ -489,7 +489,7 @@ Write naturally, like an expert briefing a colleague. Use specific numbers. No J
             summary += f" Key finding: {findings[0].get('finding', '')}"
         return summary
     
-    async def process(self, prompt: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def process(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Main entry point - orchestrates the full THINK -> PLAN -> EXECUTE -> SYNTHESIZE pipeline.
         """
@@ -525,10 +525,10 @@ class NoidaPatternLearner:
     This gives the system actual knowledge about local traffic/AQI patterns.
     """
     
-    def __init__(self, traffic_data_path: str = None, aqi_data_path: str = None):
+    def __init__(self, traffic_data_path: Optional[str] = None, aqi_data_path: Optional[str] = None):
         self.traffic_data = None
         self.aqi_data = None
-        self.patterns = {}
+        self.patterns: Dict[str, Any] = {}
         
         if traffic_data_path:
             self._load_traffic_data(traffic_data_path)
@@ -595,7 +595,7 @@ class NoidaPatternLearner:
             'monsoon_avg': float(df[df['month'].isin([7, 8, 9])]['AQI'].mean()),
         }
     
-    def get_context_for_date(self, date: datetime = None) -> Dict[str, Any]:
+    def get_context_for_date(self, date: Optional[datetime] = None) -> Dict[str, Any]:
         """Get relevant patterns for a specific date."""
         if date is None:
             date = datetime.now()
