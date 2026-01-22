@@ -1,9 +1,10 @@
-i still \import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './styles.css';
 import { addFlyoverLayer, removeFlyoverLayer } from './FlyoverLayer';
 import ImagenFlyoverVisuals from './ImagenFlyoverVisuals';
+import Flyover3DViewer from './Flyover3DViewer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiYWF5dXNoMTMxNHIiLCJhIjoiY21mYmRqa3p3MWZvMjJsczY3bXR2bTl0diJ9.QM8zGV5wgRj5AjFskklefw';
 mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -27,6 +28,10 @@ export default function FlyoverSim() {
   const [stats, setStats] = useState(null);
   const [mapStatus, setMapStatus] = useState('INITIALIZING');
   const [pinMode, setPinMode] = useState(null);
+  
+  // 3D Viewer state
+  const [show3DViewer, setShow3DViewer] = useState(false);
+  const [flyoverData, setFlyoverData] = useState(null);
 
   const addLog = (msg, type = 'info') => {
     const time = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -900,6 +905,16 @@ export default function FlyoverSim() {
         railways: infrastructure ? (infrastructure.railways || []).length : 0
       });
 
+      // Store flyover data for 3D viewer
+      setFlyoverData({
+        flyover_path: flyoverPath,
+        pillars: smartPillars.map(p => p.coords),
+        flyover_width_m: flyoverDistanceKm > 1.5 ? 14 : 9,
+        flyover_height_m: flyoverHeight,
+        flyover_lanes: flyoverDistanceKm > 1.5 ? 4 : 2,
+        pillar_spacing_m: pillarSpacingM,
+      });
+
       setMapStatus('VISUALIZED');
       addLog('✅ Custom flyover design complete!', 'success');
       addLog('⏱️ Time saved: ' + timeSaved + ' min (' + timeSavedPercent + '% faster!)', 'success');
@@ -1148,6 +1163,41 @@ export default function FlyoverSim() {
               <div className="eco-badge">
                 DIRECT ROUTE OVER OBSTACLES | ARCHITECT OPTIMIZED
               </div>
+
+              {/* 3D Explorer Button */}
+              <button 
+                className="explore-3d-btn"
+                onClick={() => setShow3DViewer(true)}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  marginTop: '16px',
+                  background: 'linear-gradient(135deg, #CCFF00 0%, #88cc00 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#0a0a0a',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  transition: 'all 0.3s',
+                  boxShadow: '0 4px 20px rgba(204, 255, 0, 0.3)',
+                }}
+              >
+                🏗️ EXPLORE IN 3D
+                <span style={{
+                  background: '#0a0a0a',
+                  color: '#CCFF00',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                }}>
+                  HIGH-FIDELITY
+                </span>
+              </button>
             </div>
           )}
 
@@ -1165,6 +1215,15 @@ export default function FlyoverSim() {
           )}
         </aside>
       </main>
+
+      {/* 3D Flyover Viewer Modal */}
+      {show3DViewer && flyoverData && (
+        <Flyover3DViewer 
+          flyoverData={flyoverData}
+          locationName={origin || 'Delhi Flyover'}
+          onClose={() => setShow3DViewer(false)}
+        />
+      )}
     </div>
   );
 }

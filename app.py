@@ -2157,6 +2157,20 @@ from fastapi import Header
 async def _startup() -> None:
     # Initialize Customer Validation DB (SQLite)
     await init_validation_db()
+    
+    # Log Azure configuration status at startup (for debugging Render deployments)
+    cfg = load_azure_config()
+    print("=" * 60)
+    print("🚀 OVERHAUL Backend Starting")
+    print("=" * 60)
+    print(f"Azure OpenAI Endpoint: {'✅ SET' if cfg.azure_openai_endpoint else '❌ NOT SET'}")
+    print(f"Azure OpenAI Key: {'✅ SET' if cfg.azure_openai_key else '❌ NOT SET'}")
+    print(f"Azure OpenAI Deployment: {cfg.azure_openai_deployment or '❌ NOT SET'}")
+    print(f"Azure OpenAI Enabled: {'✅ YES' if azure_openai_enabled(cfg) else '❌ NO'}")
+    print(f"Azure Maps Key: {'✅ SET' if cfg.azure_maps_key else '❌ NOT SET'}")
+    print(f"Azure Maps Enabled: {'✅ YES' if azure_maps_enabled(cfg) else '❌ NO'}")
+    print(f"OVERHAUL_AZURE_ONLY: {os.getenv('OVERHAUL_AZURE_ONLY', '1')}")
+    print("=" * 60)
 
 
 class ValidationCreateRequest(BaseModel):
@@ -2207,6 +2221,7 @@ async def integrations_status():
         "azure_maps": {
             "enabled": azure_maps_enabled(cfg),
             "has_key": bool(cfg.azure_maps_key),
+            "key_length": len(cfg.azure_maps_key) if cfg.azure_maps_key else 0,
         },
         "azure_openai": {
             "enabled": azure_openai_enabled(cfg),
@@ -2219,6 +2234,14 @@ async def integrations_status():
             "deployment_behavior": cfg.azure_openai_deployment_behavior,
             "deployment_policy_econ": cfg.azure_openai_deployment_policy_econ,
             "api_version": cfg.azure_openai_api_version,
+            "endpoint_domain": cfg.azure_openai_endpoint.split("//")[-1].split("/")[0] if cfg.azure_openai_endpoint else None,
+        },
+        "env_vars_present": {
+            "AZURE_OPENAI_ENDPOINT": bool(os.environ.get("AZURE_OPENAI_ENDPOINT")),
+            "AZURE_OPENAI_KEY": bool(os.environ.get("AZURE_OPENAI_KEY")),
+            "AZURE_OPENAI_DEPLOYMENT": bool(os.environ.get("AZURE_OPENAI_DEPLOYMENT")),
+            "AZURE_MAPS_KEY": bool(os.environ.get("AZURE_MAPS_KEY")),
+            "OVERHAUL_AZURE_ONLY": os.environ.get("OVERHAUL_AZURE_ONLY", "1"),
         },
     }
 

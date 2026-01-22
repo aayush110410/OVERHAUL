@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
-const API_BASE = 'http://localhost:8000';
+// Use the flyover backend API (same as main page uses)
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8001';
 
 export default function ImagenFlyoverVisuals({ flyoverData, locationName }) {
   const [conceptImage, setConceptImage] = useState(null);
