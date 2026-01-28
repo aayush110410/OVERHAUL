@@ -24,7 +24,7 @@ try:
 except Exception:
     pass
 
-from azure_ai.config import azure_maps_enabled, azure_openai_deployment_for, azure_openai_enabled, load_azure_config
+from azure_ai.config import azure_maps_enabled, azure_openai_deployment_for, azure_openai_enabled, load_azure_config, get_config_debug_info
 from azure_ai.maps.search import azure_maps_geocode, azure_maps_reverse_geocode
 from azure_ai.maps.tiles import azure_maps_fetch_tile
 from knowledge.index import query_knowledge
@@ -2209,11 +2209,15 @@ async def health():
 async def integrations_status():
     """Report which external integrations are configured.
 
-    This endpoint intentionally does not return secrets.
+    This endpoint intentionally does not return full secrets (keys are masked).
+    Use this to debug configuration issues on Render.
     """
 
     cfg = load_azure_config()
+    debug_info = get_config_debug_info()
+    
     return {
+        "config_cached": debug_info.get("cached", False),
         "tomtom_traffic": {
             "enabled": bool((os.environ.get("TOMTOM_API_KEY") or "").strip()),
             "has_key": bool((os.environ.get("TOMTOM_API_KEY") or "").strip()),
@@ -2221,6 +2225,7 @@ async def integrations_status():
         "azure_maps": {
             "enabled": azure_maps_enabled(cfg),
             "has_key": bool(cfg.azure_maps_key),
+            "key_masked": debug_info.get("azure_maps_key", "(not set)"),
             "key_length": len(cfg.azure_maps_key) if cfg.azure_maps_key else 0,
         },
         "azure_openai": {
@@ -2228,7 +2233,9 @@ async def integrations_status():
             "has_endpoint": bool(cfg.azure_openai_endpoint),
             "has_key": bool(cfg.azure_openai_key),
             "has_deployment": bool(cfg.azure_openai_deployment),
-            "deployment": cfg.azure_openai_deployment,
+            "endpoint": cfg.azure_openai_endpoint or "(not set)",
+            "key_masked": debug_info.get("azure_openai_key", "(not set)"),
+            "deployment": cfg.azure_openai_deployment or "(not set)",
             "deployment_ldrago": cfg.azure_openai_deployment_ldrago,
             "deployment_weather": cfg.azure_openai_deployment_weather,
             "deployment_behavior": cfg.azure_openai_deployment_behavior,
@@ -2236,13 +2243,15 @@ async def integrations_status():
             "api_version": cfg.azure_openai_api_version,
             "endpoint_domain": cfg.azure_openai_endpoint.split("//")[-1].split("/")[0] if cfg.azure_openai_endpoint else None,
         },
-        "env_vars_present": {
+        "env_vars_direct_check": {
             "AZURE_OPENAI_ENDPOINT": bool(os.environ.get("AZURE_OPENAI_ENDPOINT")),
             "AZURE_OPENAI_KEY": bool(os.environ.get("AZURE_OPENAI_KEY")),
             "AZURE_OPENAI_DEPLOYMENT": bool(os.environ.get("AZURE_OPENAI_DEPLOYMENT")),
             "AZURE_MAPS_KEY": bool(os.environ.get("AZURE_MAPS_KEY")),
+            "RENDER": os.environ.get("RENDER", "(not set)"),
             "OVERHAUL_AZURE_ONLY": os.environ.get("OVERHAUL_AZURE_ONLY", "1"),
         },
+        "environment": debug_info.get("environment", {}),
     }
 
 @app.get("/live/aqi")

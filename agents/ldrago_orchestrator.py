@@ -73,7 +73,6 @@ Urban Mobility & Environmental Intelligence Report
 1. Executive Response
 
 (Direct answer to the user’s prompt)
-
 A concise, decision-ready response addressing the user’s exact question in 2–4 sentences.
 This section:
 	•	Synthesizes traffic + air quality (if relevant)
