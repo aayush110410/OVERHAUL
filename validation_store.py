@@ -17,7 +17,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 # Check if we're using Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
@@ -127,7 +127,7 @@ def get_sessionmaker():
 # UTILITY FUNCTIONS
 # =============================================================================
 
-def validate_and_normalize_email(email: str) -> str:
+def validate_and_normalize_email(email: Optional[str]) -> str:
     value = (email or "").strip()
     if not value or len(value) > 254 or not _EMAIL_RE.match(value):
         raise ValueError("Invalid email")
@@ -211,7 +211,7 @@ async def init_validation_db() -> None:
 
 async def create_entry(*, payload: Dict[str, Any]) -> Dict[str, Any]:
     name = sanitize_text(payload.get("name"), max_len=100) or "Anonymous"
-    email = validate_and_normalize_email(payload.get("email"))
+    email = validate_and_normalize_email(cast(Optional[str], payload.get("email")))
     role = sanitize_text(payload.get("role"), max_len=80)
     organization = sanitize_text(payload.get("organization"), max_len=120)
 
@@ -267,7 +267,7 @@ async def create_entry(*, payload: Dict[str, Any]) -> Dict[str, Any]:
         result = supabase.table("validation_entries").insert(data).execute()
         
         if result.data and len(result.data) > 0:
-            entry = result.data[0]
+            entry = cast(Dict[str, Any], result.data[0])
             return {
                 "id": entry.get("id"),
                 "created_at": entry.get("created_at"),
@@ -281,7 +281,7 @@ async def create_entry(*, payload: Dict[str, Any]) -> Dict[str, Any]:
         # SQLite fallback
         Session = get_sessionmaker()
         
-        entry = ValidationEntry(
+        sqlite_entry = ValidationEntry(
             name=name,
             email=email,
             role=role,
@@ -301,15 +301,15 @@ async def create_entry(*, payload: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         async with Session() as session:
-            session.add(entry)
+            session.add(sqlite_entry)
             await session.commit()
-            await session.refresh(entry)
+            await session.refresh(sqlite_entry)
 
         return {
-            "id": entry.id,
-            "created_at": entry.created_at.isoformat() if entry.created_at else datetime.utcnow().isoformat() + "Z",
-            "is_approved": bool(entry.is_approved),
-            "display_email": anonymize_email(entry.email),
+            "id": sqlite_entry.id,
+            "created_at": sqlite_entry.created_at.isoformat() if sqlite_entry.created_at else datetime.utcnow().isoformat() + "Z",
+            "is_approved": bool(sqlite_entry.is_approved),
+            "display_email": anonymize_email(sqlite_entry.email),
         }
 
 
@@ -334,21 +334,22 @@ async def list_entries(*, page: int, page_size: int, approved_only: bool = True)
 
         items = []
         for r in rows:
+            row = cast(Dict[str, Any], r)
             items.append({
-                "id": r.get("id"),
-                "created_at": r.get("created_at"),
-                "name": r.get("name"),
-                "role": r.get("role"),
-                "organization": r.get("organization"),
-                "problem_relevance": r.get("problem_relevance"),
-                "has_experience": r.get("has_experience"),
-                "tools_shortcoming": r.get("tools_shortcoming"),
-                "usage_contexts": r.get("usage_contexts", []),
-                "learning_tool_value": r.get("learning_tool_value"),
-                "interesting_aspect": r.get("interesting_aspect"),
-                "suggested_improvement": r.get("suggested_improvement"),
-                "interest_in_trying": r.get("interest_in_trying"),
-                "display_email": anonymize_email(r.get("email", "")),
+                "id": row.get("id"),
+                "created_at": row.get("created_at"),
+                "name": row.get("name"),
+                "role": row.get("role"),
+                "organization": row.get("organization"),
+                "problem_relevance": row.get("problem_relevance"),
+                "has_experience": row.get("has_experience"),
+                "tools_shortcoming": row.get("tools_shortcoming"),
+                "usage_contexts": row.get("usage_contexts", []),
+                "learning_tool_value": row.get("learning_tool_value"),
+                "interesting_aspect": row.get("interesting_aspect"),
+                "suggested_improvement": row.get("suggested_improvement"),
+                "interest_in_trying": row.get("interest_in_trying"),
+                "display_email": anonymize_email(cast(str, row.get("email", ""))),
             })
 
         return {"page": page, "page_size": page_size, "items": items}

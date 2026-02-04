@@ -12,17 +12,30 @@ import ImagenOverlayControls from './components/ImagenOverlayControls'
 
 // Check if Azure Maps is available via backend - tries a small tile fetch
 async function checkAzureMapsAvailable() {
+  const url = `${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`
+  console.log('[AzureMaps] Checking availability at:', url)
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
-    const resp = await fetch(`${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`, {
-      signal: controller.signal
+    const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout for slow cold starts
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      mode: 'cors',
     })
     clearTimeout(timeoutId)
     // Check if response is actually an image (not JSON error)
     const contentType = resp.headers.get('content-type') || ''
-    return resp.ok && contentType.includes('image')
-  } catch {
+    const isImage = resp.ok && contentType.includes('image')
+    console.log('[AzureMaps] Response:', { status: resp.status, contentType, isImage })
+    if (!isImage && resp.ok) {
+      // Log the response body for debugging if it's not an image
+      try {
+        const text = await resp.text()
+        console.warn('[AzureMaps] Unexpected response body:', text.substring(0, 500))
+      } catch (e) { /* ignore */ }
+    }
+    return isImage
+  } catch (err) {
+    console.warn('[AzureMaps] Check failed:', err.message || err)
     return false
   }
 }

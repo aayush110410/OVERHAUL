@@ -150,8 +150,8 @@ def generate_action(row: pd.Series) -> str:
 def suggest_detours(hotspots: List[Dict[str, object]]) -> List[Dict[str, object]]:
     detours: List[Dict[str, object]] = []
     for hot in hotspots:
-        lat = hot["lat"]
-        lon = hot["lon"]
+        lat = float(hot["lat"])
+        lon = float(hot["lon"])
         detours.append(
             {
                 "origin": [lat, lon],

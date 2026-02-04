@@ -333,7 +333,7 @@ Be specific, use numbers, and ensure consistency across all inputs."""
 
 async def ldrago_orchestrate(
     query: str,
-    context: Dict[str, Any] = None,
+    context: Optional[Dict[str, Any]] = None,
     run_agents: bool = True,
 ) -> Dict[str, Any]:
     """
@@ -409,8 +409,8 @@ async def ldrago_orchestrate(
 
 async def ldrago_fast(
     query: str,
-    context: Dict[str, Any] = None,
-    progress_callback: Callable[[str, int], None] = None,
+    context: Optional[Dict[str, Any]] = None,
+    progress_callback: Optional[Callable[[str, int], None]] = None,
 ) -> Dict[str, Any]:
     """
     FAST LDRAGo - Uses local CSV data + Azure only.
@@ -472,7 +472,7 @@ async def ldrago_fast(
 
 
 # Quick mode - just Azure + Gemini synthesis (no agent searches)
-async def ldrago_quick(query: str, context: Dict[str, Any] = None) -> str:
+async def ldrago_quick(query: str, context: Optional[Dict[str, Any]] = None) -> str:
     """Quick mode - Azure + Gemini without full agent search."""
     context = context or {}
     

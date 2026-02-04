@@ -1,0 +1,14 @@
+{
+  "typeCheckingMode": "off",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "."
+      ]
+    }
+  ],
+  "reportMissingTypeStubs": false,
+  "reportMissingImports": false,
+  "reportGeneralTypeIssues": false
+}
