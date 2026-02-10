@@ -21,7 +21,7 @@ async def azure_maps_fetch_tile(
     cfg: Optional[AzureConfig] = None,
 ) -> bytes:
     cfg = cfg or load_azure_config()
-    if not azure_maps_enabled(cfg):
+    if not azure_maps_enabled(cfg) or not cfg.azure_maps_key:
         raise RuntimeError("Azure Maps is not configured. Set AZURE_MAPS_KEY.")
 
     url = "https://atlas.microsoft.com/map/tile"
@@ -32,7 +32,7 @@ async def azure_maps_fetch_tile(
         "x": str(x),
         "y": str(y),
     }
-    headers = {"subscription-key": cfg.azure_maps_key}
+    headers: dict[str, str] = {"subscription-key": cfg.azure_maps_key}
 
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(url, params=params, headers=headers)

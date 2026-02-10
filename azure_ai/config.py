@@ -44,14 +44,14 @@ def _load_dotenv_once():
         return
     
     try:
-        # Only load .env in local development, NOT in production
-        # Render sets RENDER=true in the environment
-        is_render = os.getenv("RENDER", "").lower() == "true"
-        is_production = os.getenv("PRODUCTION", "").lower() == "true"
+        # Only load .env in local development, NOT in production.
+        # Render may not always provide RENDER=true, so also check Render-specific vars.
+        is_render = bool((os.getenv("RENDER") or "").strip()) or bool((os.getenv("RENDER_SERVICE_ID") or "").strip())
+        is_production = (os.getenv("PRODUCTION") or "").strip().lower() in {"1", "true", "yes"}
         
         if not is_render and not is_production and _DEFAULT_DOTENV_PATH.exists():
             from dotenv import load_dotenv
-            dotenv_override = os.getenv("OVERHAUL_DOTENV_OVERRIDE", "1").strip() != "0"
+            dotenv_override = os.getenv("OVERHAUL_DOTENV_OVERRIDE", "0").strip() != "0"
             load_dotenv(dotenv_path=_DEFAULT_DOTENV_PATH, override=dotenv_override)
             print(f"[Azure Config] Loaded .env from {_DEFAULT_DOTENV_PATH}")
         elif is_render:

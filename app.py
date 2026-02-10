@@ -14,13 +14,16 @@ import math
 import httpx
 
 # Local dev convenience: load .env if present.
-# By default we allow .env to override inherited shell env so changes take effect
-# without having to chase stale exported variables.
+# IMPORTANT: Never let dotenv interfere in production/Render.
 try:
-    from dotenv import load_dotenv  # type: ignore
+    is_render = bool((os.getenv("RENDER") or "").strip()) or bool((os.getenv("RENDER_SERVICE_ID") or "").strip())
+    is_production = (os.getenv("PRODUCTION") or "").strip().lower() in {"1", "true", "yes"}
+    allow_dotenv = (os.getenv("OVERHAUL_LOAD_DOTENV", "1").strip() != "0") and (not is_render) and (not is_production)
+    if allow_dotenv:
+        from dotenv import load_dotenv  # type: ignore
 
-    dotenv_override = os.getenv("OVERHAUL_DOTENV_OVERRIDE", "1").strip() != "0"
-    load_dotenv(override=dotenv_override)
+        dotenv_override = os.getenv("OVERHAUL_DOTENV_OVERRIDE", "0").strip() != "0"
+        load_dotenv(override=dotenv_override)
 except Exception:
     pass
 
@@ -837,7 +840,9 @@ class LDRagoController:
         master_result = None
         cfg = load_azure_config()
         azure_ok = azure_openai_enabled(cfg)
-        azure_only = os.getenv("OVERHAUL_AZURE_ONLY", "1").strip() != "0"
+        # Azure-only is opt-in. Default to allowing fallbacks so the app remains usable
+        # if an environment is missing Azure vars (common on free hosts / misconfigured services).
+        azure_only = os.getenv("OVERHAUL_AZURE_ONLY", "0").strip() != "0"
         prefer_azure = azure_ok and (os.getenv("OVERHAUL_PREFER_AZURE", "1").strip() != "0")
         if azure_only:
             if not azure_ok:
@@ -2216,7 +2221,23 @@ async def integrations_status():
     cfg = load_azure_config()
     debug_info = get_config_debug_info()
     
+    started_at = getattr(app.state, "started_at", None)
+    if started_at is None:
+        app.state.started_at = time.time()
+        started_at = app.state.started_at
+
     return {
+        "instance": {
+            "hostname": os.getenv("HOSTNAME") or None,
+            "pid": os.getpid(),
+            "started_at_epoch": started_at,
+            "uptime_seconds": max(0.0, time.time() - float(started_at)),
+            "render_service_id": os.getenv("RENDER_SERVICE_ID") or None,
+            "render_service_name": os.getenv("RENDER_SERVICE_NAME") or None,
+            "render_instance_id": os.getenv("RENDER_INSTANCE_ID") or None,
+            "render_external_url": os.getenv("RENDER_EXTERNAL_URL") or None,
+            "render_git_commit": os.getenv("RENDER_GIT_COMMIT") or None,
+        },
         "config_cached": debug_info.get("cached", False),
         "tomtom_traffic": {
             "enabled": bool((os.environ.get("TOMTOM_API_KEY") or "").strip()),
@@ -2249,7 +2270,7 @@ async def integrations_status():
             "AZURE_OPENAI_DEPLOYMENT": bool(os.environ.get("AZURE_OPENAI_DEPLOYMENT")),
             "AZURE_MAPS_KEY": bool(os.environ.get("AZURE_MAPS_KEY")),
             "RENDER": os.environ.get("RENDER", "(not set)"),
-            "OVERHAUL_AZURE_ONLY": os.environ.get("OVERHAUL_AZURE_ONLY", "1"),
+            "OVERHAUL_AZURE_ONLY": os.environ.get("OVERHAUL_AZURE_ONLY", "0"),
         },
         "environment": debug_info.get("environment", {}),
     }
