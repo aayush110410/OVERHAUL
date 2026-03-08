@@ -206,17 +206,16 @@ async function geocode(place) {
   const raw = (place || '').trim()
   if (!raw) throw new Error('Location is required')
 
-  // Prefer Azure Maps via backend (no client-side key)
+  // Prefer Nominatim via backend (no client-side key)
   try {
     const q = raw.toLowerCase().includes('india') ? raw : `${raw}, India`
-    const data = await apiFetchJson(`/azure/maps/geocode?query=${encodeURIComponent(q)}&limit=1`)
-    const r = Array.isArray(data?.results) ? data.results[0] : null
-    const pos = r?.position
-    const addr = r?.address
-    if (pos?.lat != null && pos?.lon != null) {
+    const data = await apiFetchJson(`/geocode?query=${encodeURIComponent(q)}&limit=1`)
+    const results = Array.isArray(data?.results) ? data.results : []
+    const r = results[0]
+    if (r?.lat != null && r?.lon != null) {
       return {
-        coords: [pos.lon, pos.lat],
-        name: addr?.freeformAddress || raw
+        coords: [parseFloat(r.lon), parseFloat(r.lat)],
+        name: r.display_name || raw
       }
     }
   } catch {
@@ -224,7 +223,7 @@ async function geocode(place) {
   }
 
   if (!MAPBOX_TOKEN) {
-    throw new Error(`Geocoding unavailable. Configure VITE_MAPBOX_TOKEN or backend Azure Maps at ${API_BASE}.`)
+    throw new Error(`Geocoding unavailable. Configure VITE_MAPBOX_TOKEN or backend geocoding at ${API_BASE}.`)
   }
 
   const searchQuery = raw.toLowerCase().includes('india') ? raw : `${raw}, India`
@@ -242,12 +241,10 @@ async function geocode(place) {
 
 // Reverse geocode coords to place name
 async function reverseGeocode(lng, lat) {
-  // Prefer Azure Maps via backend
+  // Prefer Nominatim via backend
   try {
-    const data = await apiFetchJson(`/azure/maps/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`)
-    const r = Array.isArray(data?.addresses) ? data.addresses[0] : null
-    const addr = r?.address
-    if (addr?.freeformAddress) return addr.freeformAddress
+    const data = await apiFetchJson(`/reverse-geocode?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`)
+    if (data?.display_name) return data.display_name
   } catch {
     // fall back
   }

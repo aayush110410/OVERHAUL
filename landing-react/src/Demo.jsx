@@ -10,63 +10,8 @@ import './App.css'
 import { API_BASE } from './api/config'
 import ImagenOverlayControls from './components/ImagenOverlayControls'
 
-// Check if Azure Maps is available via backend - tries a small tile fetch
-async function checkAzureMapsAvailable() {
-  const url = `${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom=1&x=0&y=0&tileSize=256`
-  console.log('[AzureMaps] Checking availability at:', url)
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout for slow cold starts
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      mode: 'cors',
-    })
-    clearTimeout(timeoutId)
-    // Check if response is actually an image (not JSON error)
-    const contentType = resp.headers.get('content-type') || ''
-    const isImage = resp.ok && contentType.includes('image')
-    console.log('[AzureMaps] Response:', { status: resp.status, contentType, isImage })
-    if (!isImage && resp.ok) {
-      // Log the response body for debugging if it's not an image
-      try {
-        const text = await resp.text()
-        console.warn('[AzureMaps] Unexpected response body:', text.substring(0, 500))
-      } catch (e) { /* ignore */ }
-    }
-    return isImage
-  } catch (err) {
-    console.warn('[AzureMaps] Check failed:', err.message || err)
-    return false
-  }
-}
-
-const AZURE_RECHECK_INTERVAL_MS = 15000
-const AZURE_RECHECK_MAX_ATTEMPTS = 8
-
-function getAzureMapsRasterStyle() {
-  // Azure Maps Raster Tiles via backend proxy
-  return {
-    version: 8,
-    sources: {
-      'azure-road': {
-        type: 'raster',
-        tiles: [
-          `${API_BASE}/azure/maps/tile?tilesetId=microsoft.base.road&zoom={z}&x={x}&y={y}&tileSize=256`
-        ],
-        tileSize: 256,
-        maxzoom: 20,
-        attribution: '© Microsoft Azure Maps'
-      }
-    },
-    layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': '#0b1220' } },
-      { id: 'azure-road', type: 'raster', source: 'azure-road' }
-    ]
-  }
-}
-
-function getFallbackMapStyle() {
-  // Dark-themed CartoDB tiles as fallback when Azure Maps unavailable
+// Map style - CartoDB dark tiles (no API key required)
+function getMapStyle() {
   return {
     version: 8,
     sources: {
@@ -89,7 +34,7 @@ function getFallbackMapStyle() {
   }
 }
 
-// Live demo basemap: Azure Maps (Microsoft) via backend proxy, with CartoDB fallback
+// Live demo basemap: CartoDB dark tiles (free, no API key required)
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
@@ -401,7 +346,6 @@ function Demo() {
   // Map ref
   const mapContainer = useRef(null)
   const mapRef = useRef(null)
-  const azureRetryRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)  // Track when map is loaded for conditional rendering
 
   // Merge live context helper
@@ -511,118 +455,13 @@ function Demo() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [prompt, mode, isAnalyzing])
 
-  const setupMapLayers = (map) => {
-    if (!map) return
-
-    // Add edges source for traffic visualization
-    if (!map.getSource('edges')) {
-      map.addSource('edges', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      })
-    }
-
-    // Add pollution source
-    if (!map.getSource('pollution')) {
-      map.addSource('pollution', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      })
-    }
-
-    // Add route source
-    if (!map.getSource('route')) {
-      map.addSource('route', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      })
-    }
-
-    // Pollution layer
-    if (!map.getLayer('pollution-layer')) {
-      map.addLayer({
-        id: 'pollution-layer',
-        type: 'circle',
-        source: 'pollution',
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['get', 'intensity'], 0, 0, 1, 40],
-          'circle-color': 'rgba(255, 77, 0, 0.35)',
-          'circle-stroke-color': 'rgba(255, 77, 0, 0.8)',
-          'circle-stroke-width': 1,
-          'circle-opacity': 0.7
-        }
-      })
-    }
-
-    // Edges layer (traffic lines)
-    if (!map.getLayer('edges-layer')) {
-      map.addLayer({
-        id: 'edges-layer',
-        type: 'line',
-        source: 'edges',
-        paint: {
-          'line-color': [
-            'interpolate',
-            ['linear'],
-            ['get', 'ev_share'],
-            0, '#475569',
-            25, '#CCFF00',
-            60, '#00ff88',
-            90, '#ffff00'
-          ],
-          'line-width': ['case', ['get', 'primary'], 8, 4],
-          'line-opacity': 0.9,
-          'line-blur': 0.8
-        }
-      })
-    }
-
-    // Route layer with glow effect
-    if (!map.getLayer('route-glow')) {
-      map.addLayer({
-        id: 'route-glow',
-        type: 'line',
-        source: 'route',
-        paint: {
-          'line-color': '#CCFF00',
-          'line-width': 12,
-          'line-opacity': 0.3,
-          'line-blur': 8
-        }
-      })
-    }
-
-    if (!map.getLayer('route-line')) {
-      map.addLayer({
-        id: 'route-line',
-        type: 'line',
-        source: 'route',
-        paint: {
-          'line-color': '#CCFF00',
-          'line-width': 4,
-          'line-opacity': 0.9
-        }
-      })
-    }
-
-    // Fetch initial live data
-    fetchLiveRoute()
-    fetchLiveAQI()
-
-    // Mark map as ready for conditional component rendering
-    setMapReady(true)
-  }
-
   // Initialize Map
   useEffect(() => {
     if (!loading && mapContainer.current && !mapRef.current) {
       let cancelled = false
 
       ;(async () => {
-        // Check if Azure Maps is available, fallback to CartoDB dark tiles
-        const azureAvailable = await checkAzureMapsAvailable()
-        console.log('[Map] Azure Maps available:', azureAvailable, 'API_BASE:', API_BASE)
-        const style = azureAvailable ? getAzureMapsRasterStyle() : getFallbackMapStyle()
+        const style = getMapStyle()
         
         if (cancelled || mapRef.current) return
 
@@ -648,42 +487,95 @@ function Demo() {
 
         mapRef.current.on('load', () => {
           if (!mapRef.current) return
-          setupMapLayers(mapRef.current)
-        })
 
-        // If Azure is unavailable, periodically re-check and upgrade the basemap once ready.
-        if (!azureAvailable) {
-          let attempts = 0
-          if (azureRetryRef.current) {
-            clearInterval(azureRetryRef.current)
-          }
-          azureRetryRef.current = setInterval(async () => {
-            if (cancelled || !mapRef.current) return
-            attempts += 1
-            const ok = await checkAzureMapsAvailable()
-            if (ok && mapRef.current) {
-              console.log('[Map] Azure Maps now available; upgrading basemap')
-              mapRef.current.setStyle(getAzureMapsRasterStyle())
-              mapRef.current.once('style.load', () => {
-                if (!mapRef.current) return
-                setupMapLayers(mapRef.current)
-              })
-              clearInterval(azureRetryRef.current)
-              azureRetryRef.current = null
-            } else if (attempts >= AZURE_RECHECK_MAX_ATTEMPTS) {
-              clearInterval(azureRetryRef.current)
-              azureRetryRef.current = null
+          // Add edges source for traffic visualization
+          mapRef.current.addSource('edges', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          })
+
+          // Add pollution source
+          mapRef.current.addSource('pollution', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          })
+
+          // Add route source
+          mapRef.current.addSource('route', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          })
+
+          // Pollution layer
+          mapRef.current.addLayer({
+            id: 'pollution-layer',
+            type: 'circle',
+            source: 'pollution',
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['get', 'intensity'], 0, 0, 1, 40],
+              'circle-color': 'rgba(255, 77, 0, 0.35)',
+              'circle-stroke-color': 'rgba(255, 77, 0, 0.8)',
+              'circle-stroke-width': 1,
+              'circle-opacity': 0.7
             }
-          }, AZURE_RECHECK_INTERVAL_MS)
-        }
+          })
+
+          // Edges layer (traffic lines)
+          mapRef.current.addLayer({
+            id: 'edges-layer',
+            type: 'line',
+            source: 'edges',
+            paint: {
+              'line-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'ev_share'],
+                0, '#475569',
+                25, '#CCFF00',
+                60, '#00ff88',
+                90, '#ffff00'
+              ],
+              'line-width': ['case', ['get', 'primary'], 8, 4],
+              'line-opacity': 0.9,
+              'line-blur': 0.8
+            }
+          })
+
+          // Route layer with glow effect
+          mapRef.current.addLayer({
+            id: 'route-glow',
+            type: 'line',
+            source: 'route',
+            paint: {
+              'line-color': '#CCFF00',
+              'line-width': 12,
+              'line-opacity': 0.3,
+              'line-blur': 8
+            }
+          })
+
+          mapRef.current.addLayer({
+            id: 'route-line',
+            type: 'line',
+            source: 'route',
+            paint: {
+              'line-color': '#CCFF00',
+              'line-width': 4,
+              'line-opacity': 0.9
+            }
+          })
+
+          // Fetch initial live data
+          fetchLiveRoute()
+          fetchLiveAQI()
+          
+          // Mark map as ready for conditional component rendering
+          setMapReady(true)
+        })
       })()
     }
 
     return () => {
-      if (azureRetryRef.current) {
-        clearInterval(azureRetryRef.current)
-        azureRetryRef.current = null
-      }
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null

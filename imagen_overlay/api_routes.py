@@ -65,7 +65,7 @@ async def generate_overlay(request: OverlayRequest):
     Generate a 3D overlay image using Imagen 3 (Nano Banana Pro).
     
     This creates high-quality visualization overlays that can be
-    composited on top of the Azure Maps base layer.
+    composited on top of the CartoDB/OpenStreetMap base layer.
     """
     if not imagen_enabled():
         raise HTTPException(status_code=503, detail="Imagen API not configured")

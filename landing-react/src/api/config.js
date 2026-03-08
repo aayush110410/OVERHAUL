@@ -14,14 +14,8 @@ export function getApiBase() {
     }
   }
 
-  // Production default: same-origin backend (avoids stale/wrong Render URL)
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    console.log('[API Config] Production mode, using same-origin backend')
-    return window.location.origin
-  }
-
-  // Fallback if window is unavailable (SSR/build)
-  console.log('[API Config] Production mode, using Render backend fallback')
+  // Production default (Render)
+  console.log('[API Config] Production mode, using Render backend')
   return 'https://overhaul-1.onrender.com'
 }
 

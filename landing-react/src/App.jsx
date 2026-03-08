@@ -836,7 +836,7 @@ function App() {
               <p className="about-text">
                 Overhaul is an education-first earth simulation platform for classrooms and labs,
                 combining traffic simulation, air-quality modeling, and 3D visualization to teach systems thinking.
-                Microsoft AI powered: Azure OpenAI for reasoning + Azure Maps for spatial context.
+                AI powered: Qwen 3 for fast reasoning + Gemini 3 Pro for deep analysis + OpenStreetMap for spatial context.
               </p>
             </RevealText>
           </div>
@@ -844,7 +844,7 @@ function App() {
           <div className="about-features">
             {[
               { num: '01', title: 'REAL-TIME\nSIMULATION', desc: 'Teach mobility dynamics through interactive corridor simulations' },
-              { num: '02', title: 'MICROSOFT\nAI', desc: 'Azure OpenAI reasoning + Azure Maps spatial intelligence' },
+              { num: '02', title: 'MULTI-MODEL\nAI', desc: 'Qwen 3 fast reasoning + Gemini 3 Pro deep analysis' },
               { num: '03', title: 'IMPACT\nANALYSIS', desc: 'Explore tradeoffs: travel time, exposure, and policy outcomes' }
             ].map((feature, i) => (
               <motion.div 

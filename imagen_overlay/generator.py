@@ -36,7 +36,7 @@ class ImagenOverlayGenerator:
     """
     Generates high-quality 3D overlays using Google's Imagen 3 (Nano Banana Pro).
     
-    These overlays are designed to be composited on top of Azure Maps tiles
+    These overlays are designed to be composited on top of CartoDB/OpenStreetMap tiles
     to provide rich traffic visualization.
     """
     

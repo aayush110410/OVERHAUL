@@ -44,3 +44,5 @@ storage/
 .coverage
 htmlcov/
 new_traffic_god/
+external/
+traffic-god/data/processed/trajectories.csv

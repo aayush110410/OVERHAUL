@@ -5,8 +5,8 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-# Dedicated Imagen API Key (separate from main Gemini key)
-IMAGEN_API_KEY = os.getenv("IMAGEN_API_KEY", "AIzaSyDXyRqjC9Cpykfmy9cwKxrvK7kb0k0-5W4")
+# Imagen API Key — uses dedicated key, or falls back to main Gemini key
+IMAGEN_API_KEY = os.getenv("IMAGEN_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 
 @dataclass
 class ImagenConfig:

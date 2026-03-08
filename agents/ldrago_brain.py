@@ -16,14 +16,17 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
-from azure_ai.config import azure_openai_enabled, load_azure_config
-from azure_ai.openai.chat import azure_openai_chat_json, azure_openai_chat_text
+from llm.config import load_llm_config, qwen_enabled, gemini_enabled
+from llm.chat import llm_chat_json, llm_chat_text
 
 # Configure Gemini (optional fallback)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
+if GEMINI_API_KEY and genai:
     genai.configure(api_key=GEMINI_API_KEY)
 
 
@@ -43,11 +46,12 @@ class LDRAgoBrain:
     
     def __init__(self, data_context: Optional[Dict[str, Any]] = None):
         # Provider selection:
-        # - Primary: Azure OpenAI Service (if configured)
-        # - Fallback: Gemini (if configured)
-        self.azure_cfg = load_azure_config()
-        if azure_openai_enabled(self.azure_cfg):
-            self.provider = "azure_openai"
+        # - Primary: Qwen 3 4B via OpenRouter (if configured)
+        # - Secondary: Gemini 3 Pro Preview (if configured)
+        # - Fallback: Gemini SDK (if GEMINI_API_KEY set)
+        self.llm_cfg = load_llm_config()
+        if qwen_enabled(self.llm_cfg) or gemini_enabled(self.llm_cfg):
+            self.provider = "llm"
         elif GEMINI_API_KEY:
             self.provider = "gemini"
         else:
@@ -56,7 +60,7 @@ class LDRAgoBrain:
         self.model = None
         if self.provider == "gemini":
             # Gemini fallback
-            self.model = genai.GenerativeModel('gemini-3-pro-preview')
+            self.model = genai.GenerativeModel('gemini-3.1-pro-preview')
         self.data_context = data_context or {}
         self.conversation_history: List[Dict[str, str]] = []
         
@@ -130,15 +134,15 @@ Analyze this prompt and respond with a JSON object containing:
 
 Think step by step. What is the user really asking for?"""
 
-        if self.provider == "azure_openai":
+        if self.provider == "llm":
             try:
-                thought = await azure_openai_chat_json(
+                thought = await llm_chat_json(
                     prompt=thinking_prompt,
                     system=(
                         "You are LDRAGo, an expert urban mobility analyst for Noida, India. "
                         "Return ONLY a valid JSON object matching the requested schema."
                     ),
-                    cfg=self.azure_cfg,
+                    cfg=self.llm_cfg,
                     max_output_tokens=4000,
                 )
                 thought["raw_prompt"] = prompt
@@ -197,7 +201,7 @@ Think step by step. What is the user really asking for?"""
             "required_capabilities": ["traffic_simulation"],
             "time_scope": "immediate",
             "confidence": 0.4,
-            "clarifying_questions": ["Set AZURE_OPENAI_* or GEMINI_API_KEY to enable full reasoning."],
+            "clarifying_questions": ["Set OPENROUTER_API_KEY or GEMINI_API_KEY to enable full reasoning."],
             "noida_specific_context": "General Noida corridor analysis",
             "raw_prompt": prompt,
             "thinking_timestamp": datetime.now().isoformat(),
@@ -241,15 +245,15 @@ Create an execution plan as a JSON object:
 
 Create an efficient plan that gets the user what they need."""
 
-        if self.provider == "azure_openai":
+        if self.provider == "llm":
             try:
-                plan = await azure_openai_chat_json(
+                plan = await llm_chat_json(
                     prompt=planning_prompt,
                     system=(
                         "You are LDRAGo planning an analysis workflow. "
                         "Return ONLY a valid JSON object matching the requested schema."
                     ),
-                    cfg=self.azure_cfg,
+                    cfg=self.llm_cfg,
                     max_output_tokens=4000,
                 )
                 plan["thought"] = thought
@@ -357,15 +361,15 @@ Generate a comprehensive response as JSON:
 
 Be specific, use numbers from the data, and be honest about uncertainties."""
 
-        if self.provider == "azure_openai":
+        if self.provider == "llm":
             try:
-                synthesis = await azure_openai_chat_json(
+                synthesis = await llm_chat_json(
                     prompt=synthesis_prompt,
                     system=(
                         "You are LDRAGo synthesizing analysis results. "
                         "Return ONLY a valid JSON object matching the requested schema."
                     ),
-                    cfg=self.azure_cfg,
+                    cfg=self.llm_cfg,
                     max_output_tokens=4000,
                 )
                 synthesis["synthesis_timestamp"] = datetime.now().isoformat()
@@ -442,7 +446,7 @@ Be specific, use numbers from the data, and be honest about uncertainties."""
                 "limitations": ["No LLM provider configured"],
                 "confidence_level": "low",
             },
-            "follow_up_suggestions": ["Configure Azure OpenAI to enable detailed synthesis."],
+            "follow_up_suggestions": ["Configure OPENROUTER_API_KEY or GEMINI_API_KEY to enable detailed synthesis."],
         }
     
     async def generate_narrative(self, synthesis: Dict[str, Any], mode: str = "concise") -> str:
@@ -456,15 +460,15 @@ Be specific, use numbers from the data, and be honest about uncertainties."""
 
 Write naturally, like an expert briefing a colleague. Use specific numbers. No JSON, just plain text."""
 
-        if self.provider == "azure_openai":
+        if self.provider == "llm":
             try:
-                return await azure_openai_chat_text(
+                return await llm_chat_text(
                     prompt=narrative_prompt,
                     system=(
                         "You are LDRAGo. Write a clear, professional narrative. "
                         "Return plain text only."
                     ),
-                    cfg=self.azure_cfg,
+                    cfg=self.llm_cfg,
                     max_output_tokens=4000,
                 )
             except Exception:

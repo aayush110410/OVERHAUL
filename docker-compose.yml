@@ -1,0 +1,128 @@
+# ══════════════════════════════════════════════════════════════════
+#  OVERHAUL Microservices — docker-compose
+# ══════════════════════════════════════════════════════════════════
+#
+#  Usage:
+#    docker-compose up --build
+#    docker-compose up gateway simulation data   # partial stack
+#
+#  Environment:
+#    Copy .env.example → .env and fill in API keys.
+#    Services discover each other via <SERVICE>_SERVICE_URL env vars.
+#
+# ══════════════════════════════════════════════════════════════════
+
+version: "3.9"
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: services/Dockerfile
+  restart: unless-stopped
+  env_file: .env
+  volumes:
+    - ./data:/app/data:ro
+    - ./config.yaml:/app/config.yaml:ro
+
+services:
+  # ── Gateway (port 8000) ─────────────────────────────────────────
+  gateway:
+    <<: *common
+    container_name: overhaul-gateway
+    command: ["python", "services/gateway/app.py"]
+    ports:
+      - "8000:8000"
+    environment:
+      - GATEWAY_PORT=8000
+      - SIMULATION_SERVICE_URL=http://simulation:8001
+      - LLM_SERVICE_URL=http://llm:8002
+      - DATA_SERVICE_URL=http://data:8003
+      - VALIDATION_SERVICE_URL=http://validation:8004
+      - TRAFFIC_GOD_SERVICE_URL=http://traffic_god:8005
+    depends_on:
+      simulation:
+        condition: service_healthy
+      llm:
+        condition: service_healthy
+      data:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ── Simulation (port 8001) ──────────────────────────────────────
+  simulation:
+    <<: *common
+    container_name: overhaul-simulation
+    command: ["python", "services/simulation/app.py"]
+    ports:
+      - "8001:8001"
+    environment:
+      - SIMULATION_PORT=8001
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8001/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── LLM (port 8002) ────────────────────────────────────────────
+  llm:
+    <<: *common
+    container_name: overhaul-llm
+    command: ["python", "services/llm/app.py"]
+    ports:
+      - "8002:8002"
+    environment:
+      - LLM_PORT=8002
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8002/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Data (port 8003) ────────────────────────────────────────────
+  data:
+    <<: *common
+    container_name: overhaul-data
+    command: ["python", "services/data/app.py"]
+    ports:
+      - "8003:8003"
+    environment:
+      - DATA_PORT=8003
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8003/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Validation (port 8004) ──────────────────────────────────────
+  validation:
+    <<: *common
+    container_name: overhaul-validation
+    command: ["python", "services/validation/app.py"]
+    ports:
+      - "8004:8004"
+    environment:
+      - VALIDATION_PORT=8004
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8004/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Traffic God (port 8005) ─────────────────────────────────────
+  traffic_god:
+    <<: *common
+    container_name: overhaul-traffic-god
+    command: ["python", "services/traffic_god/app.py"]
+    ports:
+      - "8005:8005"
+    environment:
+      - TRAFFIC_GOD_PORT=8005
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8005/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

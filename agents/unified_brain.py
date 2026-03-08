@@ -42,7 +42,7 @@ class UnifiedBrain:
     
     def __init__(self):
         if GEMINI_AVAILABLE:
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            self.model = genai.GenerativeModel('gemini-3.1-pro-preview')
         else:
             self.model = None
             

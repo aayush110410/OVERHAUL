@@ -28,9 +28,9 @@ from datetime import datetime
 
 # Gemini API configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-# Using gemini-2.5-flash for free tier quota (gemini-3-pro has no free tier)
-# gemini-2.5-flash supports Google Search grounding and is very fast
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# Using gemini-2.5-flash for search-grounded agents (fast + free tier)
+# Main deep analysis uses gemini-3.1-pro-preview via llm/chat.py
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
 GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 # Delhi NCR coverage areas
@@ -166,7 +166,7 @@ class BaseAgent:
     def __init__(self):
         self.search_enabled = True
     
-    async def analyze(self, query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def analyze(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Override in subclasses."""
         raise NotImplementedError
 
@@ -177,7 +177,7 @@ class TrafficAgent(BaseAgent):
     name = "TrafficAgent"
     domain = "traffic"
     
-    async def analyze(self, query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def analyze(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         context = context or {}
         location = context.get("location", "Delhi NCR")
         
@@ -278,7 +278,7 @@ class AQIAgent(BaseAgent):
     name = "AQIAgent"
     domain = "air_quality"
     
-    async def analyze(self, query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def analyze(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         context = context or {}
         location = context.get("location", "Delhi NCR")
         
@@ -375,7 +375,7 @@ class WeatherAgent(BaseAgent):
     name = "WeatherAgent"
     domain = "weather"
     
-    async def analyze(self, query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def analyze(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         context = context or {}
         location = context.get("location", "Delhi NCR")
         
@@ -447,7 +447,7 @@ class PolicyAgent(BaseAgent):
     name = "PolicyAgent"
     domain = "policy_economics"
     
-    async def analyze(self, query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def analyze(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         context = context or {}
         location = context.get("location", "Delhi NCR")
         
@@ -533,7 +533,7 @@ class BehaviorAgent(BaseAgent):
     name = "BehaviorAgent"
     domain = "behavior"
     
-    async def analyze(self, query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def analyze(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         context = context or {}
         location = context.get("location", "Delhi NCR")
         
@@ -628,7 +628,7 @@ behavior_agent = BehaviorAgent()
 ALL_AGENTS = [traffic_agent, aqi_agent, weather_agent, policy_agent, behavior_agent]
 
 
-async def run_all_agents(query: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+async def run_all_agents(query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Run all specialist agents in parallel."""
     import asyncio
     

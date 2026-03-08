@@ -3,5 +3,10 @@
 __pycache__
 *.pyc
 .DS_Store
+node_modules
+landing-react/node_modules
+ai-flyover-sim/frontend/node_modules
+landing-react/dist
+ai-flyover-sim/frontend/dist
 traffic-god/data/raw
 traffic-god/data/processed

@@ -61,9 +61,9 @@ class MasterBrain:
     def __init__(self):
         if GEMINI_AVAILABLE:
             # Use gemini-2.0-flash for speed
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            self.model = genai.GenerativeModel('gemini-3.1-pro-preview')
             # Also create a more powerful model for complex research
-            self.research_model = genai.GenerativeModel('gemini-2.0-flash')
+            self.research_model = genai.GenerativeModel('gemini-3.1-pro-preview')
         else:
             self.model = None
             self.research_model = None

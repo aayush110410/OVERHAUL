@@ -68,7 +68,7 @@ def load_traffic_data() -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def get_latest_aqi(city: str = None, region: str = None) -> Dict[str, Any]:
+def get_latest_aqi(city: Optional[str] = None, region: Optional[str] = None) -> Dict[str, Any]:
     """Get latest AQI data for a city/region."""
     df = load_aqi_data()
     if df.empty:
@@ -137,7 +137,7 @@ def get_aqi_trend(city: str, days: int = 7) -> Dict[str, Any]:
     }
 
 
-def get_traffic_summary(city: str = None, hour: int = None) -> Dict[str, Any]:
+def get_traffic_summary(city: Optional[str] = None, hour: int = None) -> Dict[str, Any]:
     """Get traffic summary for a city at a specific hour."""
     df = load_traffic_data()
     if df.empty:

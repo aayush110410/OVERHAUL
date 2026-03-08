@@ -1,19 +1,20 @@
 """
-LDRAGo Hybrid Orchestrator - Azure GPT-5-mini + Gemini 2.5 Flash
+LDRAGo Hybrid Orchestrator - Qwen 3 4B + Gemini 3 Pro Preview
 
 This orchestrator:
 1. Loads local CSV data (AQI, Traffic for Delhi NCR)
-2. Gets analysis from Azure GPT-5-mini (fast)
-3. Optionally runs Gemini agents for internet search (slower)
+2. Runs simulation engines for quantitative analysis
+3. Gets LLM narrative from Qwen 3 / Gemini 3 Pro (fast)
+4. Optionally runs Gemini agents for internet search (slower)
 
 Flow:
-User Query → Local Data → Azure Analysis → (Optional) Gemini Enhancement → Response
+User Query → Local Data → Simulation Engines → LLM Narrative → Response
 """
 
 from __future__ import annotations
 import os
 import json
-import asyncio
+import asyncio 
 from typing import Any, Dict, List, Optional, Callable
 from datetime import datetime
 
@@ -27,19 +28,58 @@ from agents.ncr_data_loader import (
     format_ncr_data_for_prompt,
     get_aqi_category,
 )
-from azure_ai.openai.chat import azure_openai_chat_text
-from azure_ai.config import load_azure_config, azure_openai_enabled
+from llm.chat import llm_chat_text, llama_chat_text, gpt_oss_chat_text, llm_ensemble
+from llm.config import load_llm_config, qwen_enabled, gemini_enabled
+
+# Simulation engine integration
+from engines import get_registry
+from data_integration.bridge import (
+    ncr_data_to_engine_input,
+    build_scenario_from_prompt,
+    format_engine_results_for_chat,
+)
 
 
-ORCHESTRATOR_MODEL = "gemini-2.5-flash"  # Using 2.5 flash for free tier quota
+ORCHESTRATOR_MODEL = "gemini-2.5-flash"  # Fast orchestrator (free tier)
 
 
-async def azure_initial_analysis(query: str, context: Dict[str, Any], ncr_data: str = "") -> str:
-    """Get initial analysis from Azure GPT-5-mini (FAST - primary response)."""
+async def run_simulation_engines(
+    query: str,
+    ncr_summary: Dict[str, Any],
+    city: str = "delhi",
+) -> Dict[str, Any]:
+    """Run simulation engines for the user query and return formatted results."""
     try:
-        cfg = load_azure_config()
-        if not azure_openai_enabled(cfg):
-            return "[Azure not configured]"
+        registry = get_registry()
+        scenario = build_scenario_from_prompt(query, city=city)
+        data = ncr_data_to_engine_input(ncr_summary, city=city)
+        raw_results = await registry.run_scenario(scenario, data)
+        formatted = format_engine_results_for_chat(raw_results, scenario.name)
+        formatted["raw"] = {
+            name: {
+                "metrics": r.metrics,
+                "impacts": r.impacts,
+                "recommendations": r.recommendations,
+                "confidence": r.confidence,
+                "warnings": r.warnings,
+            }
+            for name, r in raw_results.items()
+            if hasattr(r, "metrics")
+        }
+        return formatted
+    except Exception as e:
+        return {"error": str(e), "impactCards": [], "recommendations": [], "domains": {}}
+
+
+async def llm_initial_analysis(query: str, context: Dict[str, Any], ncr_data: str = "") -> str:
+    """Get initial analysis from the best available model.
+    
+    Model priority: Llama 3.3 70B (deep analysis) → GPT-OSS-120B → Qwen 3 4B → Gemini 3.1 Pro.
+    """
+    try:
+        cfg = load_llm_config()
+        if not qwen_enabled(cfg) and not gemini_enabled(cfg):
+            return "[LLM not configured]"
         
         # Include local NCR data for grounding
         simple_context = f"""Query: {query}
@@ -227,21 +267,22 @@ Current conditions represent a compound urban stress scenario, where small behav
 
 Be thorough, educational, and helpful. Users should finish reading and feel they truly understand the situation."""
         
-        response = await azure_openai_chat_text(
+        response = await llm_chat_text(
             prompt=simple_context,
             system=system,
             cfg=cfg,
-            max_output_tokens=12000,  # Increased for detailed responses
+            max_output_tokens=12000,
+            prefer="analysis",  # Routes to Llama 3.3 70B for deep analysis
         )
         return response
     except Exception as e:
-        return f"[Azure error: {str(e)[:100]}]"
+        return f"[LLM error: {str(e)[:100]}]"
 
 
 async def gemini_final_synthesis(
     query: str,
     agent_results: Dict[str, Any],
-    azure_response: str,
+    llm_response: str,
     context: Dict[str, Any],
 ) -> str:
     """
@@ -249,7 +290,7 @@ async def gemini_final_synthesis(
     
     This is the master orchestrator that:
     1. Collects all agent outputs
-    2. Incorporates Azure's analysis
+    2. Incorporates Qwen/Gemini's analysis
     3. Cross-checks for consistency
     4. Removes ambiguity
     5. Produces the final comprehensive answer
@@ -264,7 +305,7 @@ COVERAGE AREA: Delhi NCR (National Capital Region)
 
 Your role is to:
 1. Synthesize inputs from multiple specialist AI agents covering ALL THREE cities
-2. Cross-check the Azure GPT-5-mini analysis for accuracy
+2. Cross-check the LLM analysis for accuracy
 3. Ensure the response covers Delhi, Noida, AND Ghaziabad appropriately
 4. Remove any ambiguity or contradictions between sources
 5. Produce a clear, comprehensive, actionable final response
@@ -295,8 +336,8 @@ Guidelines:
 ## SPECIALIST AGENT OUTPUTS:
 {chr(10).join(agent_summaries)}
 
-## AZURE GPT-5-MINI ANALYSIS:
-{azure_response}
+## LLM ANALYSIS (Qwen 3 / Gemini 3 Pro):
+{llm_response}
 
 ## CONTEXT:
 - Location: {context.get('location', 'Noida, India')}
@@ -327,8 +368,8 @@ Be specific, use numbers, and ensure consistency across all inputs."""
         )
         return response
     except Exception as e:
-        # Fallback to Azure response if Gemini fails
-        return f"[Synthesis note: Gemini unavailable, using Azure response]\n\n{azure_response}"
+        # Fallback to LLM response if synthesis fails
+        return f"[Synthesis note: Gemini synthesis unavailable, using initial LLM response]\n\n{llm_response}"
 
 
 async def ldrago_orchestrate(
@@ -342,7 +383,7 @@ async def ldrago_orchestrate(
     Steps:
     1. Run all specialist agents in parallel (Gemini 3 Pro + Search)
     2. Run the user prompt and self analyse through searching on the internet
-    3. Get Azure GPT-5-mini initial analysis
+    3. Get Qwen 3 / Gemini 3 Pro initial analysis
     4. Gemini 3 Pro synthesizes everything, analyses the outputs , recheks for consistency, removes ambiguity
        and produces final comprehensive response
     5. Return final response
@@ -365,27 +406,27 @@ async def ldrago_orchestrate(
             logs.append(f"⚠ Agent error: {str(e)[:80]}")
             agent_results = {"agents": {}}
     
-    # Step 2: Azure initial analysis (parallel with agents if possible)
-    logs.append("🔷 Getting Azure GPT-5-mini analysis...")
-    azure_response = await azure_initial_analysis(query, context)
-    if azure_response.startswith("[Azure"):
-        logs.append("⚠ Azure analysis unavailable")
+    # Step 2: LLM initial analysis (parallel with agents if possible)
+    logs.append("🔷 Getting multi-model analysis (Llama 3.3 70B + agents)...")
+    llm_response = await llm_initial_analysis(query, context)
+    if llm_response.startswith("[LLM"):
+        logs.append("⚠ LLM analysis unavailable")
     else:
-        logs.append("✓ Azure analysis complete")
+        logs.append("✓ Llama 3.3 70B analysis complete")
     
     # Step 3: Gemini final synthesis
-    logs.append("🧠 Gemini 3 Pro synthesizing final response...")
+    logs.append("🧠 Gemini 3.1 Pro synthesizing final response...")
     try:
         final_response = await gemini_final_synthesis(
             query=query,
             agent_results=agent_results,
-            azure_response=azure_response,
+            llm_response=llm_response,
             context=context,
         )
         logs.append("✓ Final synthesis complete")
     except Exception as e:
         logs.append(f"⚠ Synthesis error: {str(e)[:80]}")
-        final_response = azure_response  # Fallback
+        final_response = llm_response  # Fallback
     
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
@@ -395,13 +436,15 @@ async def ldrago_orchestrate(
         "query": query,
         "response": final_response,
         "agent_results": agent_results,
-        "azure_response": azure_response,
+        "llm_response": llm_response,
         "logs": logs,
         "duration_seconds": duration,
         "timestamp": end_time.isoformat(),
         "models_used": {
             "agents": GEMINI_MODEL,
-            "azure": "gpt-5-mini",
+            "analysis": "meta-llama/llama-3.3-70b-instruct",
+            "fast_llm": "qwen/qwen3-4b:free",
+            "cross_validation": "openai/gpt-oss-120b",
             "orchestrator": ORCHESTRATOR_MODEL,
         }
     }
@@ -413,13 +456,12 @@ async def ldrago_fast(
     progress_callback: Optional[Callable[[str, int], None]] = None,
 ) -> Dict[str, Any]:
     """
-    FAST LDRAGo - Uses local CSV data + Azure only.
-    Much faster than full orchestration (5-10 seconds vs 60+ seconds).
+    FAST LDRAGo - Uses local CSV data + simulation engines + LLM narrative.
     
     Steps:
     1. Load local NCR data from CSV (instant)
-    2. Get Azure GPT-5-mini analysis (5-10 seconds)
-    3. Return formatted response
+    2. Run simulation engines + LLM analysis in parallel
+    3. Return formatted response with quantitative + narrative
     """
     context = context or {}
     logs = []
@@ -443,14 +485,56 @@ async def ldrago_fast(
         ncr_summary = {}
         report_progress(f"⚠ NCR data unavailable: {str(e)[:50]}", 20)
     
-    # Step 2: Azure analysis with local data (fast)
-    report_progress("🔷 Analyzing with Azure GPT-5-mini...", 30)
-    try:
-        azure_response = await azure_initial_analysis(query, context, ncr_data)
-        report_progress("✓ Azure analysis complete", 90)
-    except Exception as e:
-        azure_response = f"Analysis error: {str(e)[:100]}"
-        report_progress(f"⚠ Azure error: {str(e)[:50]}", 90)
+    # Step 2: Run simulation engines + LLM analysis IN PARALLEL
+    report_progress("🔷 Running simulation engines + multi-model analysis...", 30)
+
+    async def _run_engines():
+        try:
+            return await run_simulation_engines(query, ncr_summary)
+        except Exception as e:
+            return {"error": str(e), "impactCards": [], "recommendations": [], "domains": {}}
+
+    async def _run_llm():
+        """Primary analysis via Llama 3.3 70B."""
+        try:
+            return await llm_initial_analysis(query, context, ncr_data)
+        except Exception as e:
+            return f"Analysis error: {str(e)[:100]}"
+
+    async def _run_cross_validation():
+        """Cross-validation via GPT-OSS-120B for critical analysis."""
+        try:
+            cfg = load_llm_config()
+            if not qwen_enabled(cfg):
+                return None
+            return await gpt_oss_chat_text(
+                prompt=f"Briefly cross-validate this Delhi NCR traffic/environment analysis. "
+                       f"Flag any inconsistencies or missing insights:\n\n"
+                       f"Query: {query}\n\nData context: {ncr_data[:2000]}",
+                system="You are a cross-validation agent. Be concise. List only issues or confirmations.",
+                cfg=cfg,
+                max_output_tokens=2000,
+            )
+        except Exception:
+            return None
+
+    engine_result, llm_response, cross_val = await asyncio.gather(
+        _run_engines(), _run_llm(), _run_cross_validation()
+    )
+
+    if isinstance(llm_response, str) and llm_response.startswith("Analysis error"):
+        report_progress(f"⚠ LLM: {llm_response[:60]}", 80)
+    else:
+        report_progress("✓ Llama 3.3 70B analysis complete", 70)
+
+    if cross_val:
+        report_progress("✓ GPT-OSS-120B cross-validation complete", 75)
+
+    if engine_result.get("error"):
+        report_progress(f"⚠ Engines: {engine_result['error'][:60]}", 85)
+    else:
+        engines_run = list(engine_result.get("domains", {}).keys())
+        report_progress(f"✓ Simulation engines complete: {engines_run}", 85)
     
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
@@ -458,28 +542,33 @@ async def ldrago_fast(
     
     return {
         "query": query,
-        "response": azure_response,
+        "response": llm_response,
         "ncr_data": ncr_summary,
+        "engine_results": engine_result,
+        "cross_validation": cross_val,
         "logs": logs,
         "duration_seconds": duration,
         "timestamp": end_time.isoformat(),
         "mode": "fast",
         "models_used": {
-            "primary": "gpt-5-mini",
+            "primary": "meta-llama/llama-3.3-70b-instruct",
+            "cross_validation": "openai/gpt-oss-120b",
+            "fallback": "qwen/qwen3-4b:free",
             "data_source": "Local CSV (NCR_AQI_2024_2025, delhi_ncr_traffic)",
+            "simulation_engines": list(engine_result.get("domains", {}).keys()),
         }
     }
 
 
-# Quick mode - just Azure + Gemini synthesis (no agent searches)
+# Quick mode - just LLM + synthesis (no agent searches)
 async def ldrago_quick(query: str, context: Optional[Dict[str, Any]] = None) -> str:
-    """Quick mode - Azure + Gemini without full agent search."""
+    """Quick mode - Qwen/Gemini without full agent search."""
     context = context or {}
     
     # Load local data
     ncr_data = format_ncr_data_for_prompt()
     
-    # Just get Azure response with local data
-    azure_response = await azure_initial_analysis(query, context, ncr_data)
+    # Just get LLM response with local data
+    llm_response = await llm_initial_analysis(query, context, ncr_data)
     
-    return azure_response
+    return llm_response
