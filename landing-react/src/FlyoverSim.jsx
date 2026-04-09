@@ -13,6 +13,48 @@ if (MAPBOX_TOKEN) {
 
 const API_BASE = 'http://localhost:8001';
 
+// ============================================
+// CUSTOM CURSOR
+// ============================================
+function CustomCursor() {
+  const cursorRef = useRef(null)
+
+  useEffect(() => {
+    const el = cursorRef.current
+    if (!el) return
+
+    const moveCursor = (e) => {
+      el.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`
+    }
+
+    const handleOver = (e) => {
+      if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' ||
+          e.target.closest('a') || e.target.closest('button')) {
+        el.classList.add('hovering')
+      }
+    }
+
+    const handleOut = (e) => {
+      if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' ||
+          e.target.closest('a') || e.target.closest('button')) {
+        el.classList.remove('hovering')
+      }
+    }
+
+    document.addEventListener('mousemove', moveCursor, { passive: true })
+    document.addEventListener('mouseover', handleOver, { passive: true })
+    document.addEventListener('mouseout', handleOut, { passive: true })
+
+    return () => {
+      document.removeEventListener('mousemove', moveCursor)
+      document.removeEventListener('mouseover', handleOver)
+      document.removeEventListener('mouseout', handleOut)
+    }
+  }, [])
+
+  return <div ref={cursorRef} className="cursor" />
+}
+
 export default function FlyoverSim() {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -1226,6 +1268,9 @@ export default function FlyoverSim() {
           onClose={() => setShow3DViewer(false)}
         />
       )}
+
+      {/* Custom Cursor */}
+      <CustomCursor />
     </div>
   );
 }

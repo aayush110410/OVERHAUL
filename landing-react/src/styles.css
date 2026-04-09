@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
 
+:root {
+  --orange: #ff4d00;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -21,6 +25,47 @@ body {
 #root {
   height: 100%;
   width: 100%;
+}
+
+/* ——— CUSTOM CURSOR ——— */
+.cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  background: var(--orange);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99999;
+  will-change: transform;
+  box-shadow: 0 0 20px rgba(255, 77, 0, 0.5);
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              height 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              background 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              border 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cursor.hovering {
+  width: 50px;
+  height: 50px;
+  background: transparent;
+  border: 2px solid var(--orange);
+  box-shadow: 0 0 30px rgba(255, 77, 0, 0.4);
+}
+
+/* Hide custom cursor on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .cursor {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .cursor {
+    display: none !important;
+  }
 }
 
 .flyover-page {
