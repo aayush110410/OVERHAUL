@@ -11,6 +11,8 @@ const Support = lazy(() => import('./Support.jsx'))
 const Features = lazy(() => import('./Features.jsx'))
 const Docs = lazy(() => import('./Docs.jsx'))
 const Founders = lazy(() => import('./Founders.jsx'))
+const FlyoverSim = lazy(() => import('./FlyoverSim.jsx'))
+const Demo2 = lazy(() => import('./Demo2.jsx'))
 
 const PrivacyPolicy = lazy(() => import('./Policies.jsx').then(m => ({ default: m.PrivacyPolicy })))
 const TermsConditions = lazy(() => import('./Policies.jsx').then(m => ({ default: m.TermsConditions })))
@@ -43,12 +45,14 @@ createRoot(document.getElementById('root')).render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/demo" element={<Demo />} />
+          <Route path="/demo2" element={<Demo2 />} />
           <Route path="/validation" element={<CustomerValidation />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/support" element={<Support />} />
           <Route path="/features" element={<Features />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/founders" element={<Founders />} />
+          <Route path="/flyover" element={<FlyoverSim />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsConditions />} />
           <Route path="/refunds" element={<RefundsPolicy />} />

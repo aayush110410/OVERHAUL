@@ -1,0 +1,54 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "FastAPI Backend (Main Gateway)",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "app:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "React Frontend (Vite)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "127.0.0.1", "--port", "5174"],
+      "port": 5174,
+      "cwd": "landing-react"
+    },
+    {
+      "name": "Simulation Service",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "services.simulation.app:app", "--reload", "--host", "0.0.0.0", "--port", "8001"],
+      "port": 8001
+    },
+    {
+      "name": "LLM Service",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "services.llm.app:app", "--reload", "--host", "0.0.0.0", "--port", "8002"],
+      "port": 8002
+    },
+    {
+      "name": "Data Service",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "services.data.app:app", "--reload", "--host", "0.0.0.0", "--port", "8003"],
+      "port": 8003
+    },
+    {
+      "name": "Validation Service",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "services.validation.app:app", "--reload", "--host", "0.0.0.0", "--port", "8004"],
+      "port": 8004
+    },
+    {
+      "name": "Traffic God Service",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "services.traffic_god.app:app", "--reload", "--host", "0.0.0.0", "--port", "8005"],
+      "port": 8005
+    },
+    {
+      "name": "Rendering Demo (Codex)",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "services.rendering_demo_codex.app:app", "--reload", "--host", "0.0.0.0", "--port", "8014"],
+      "port": 8014
+    }
+  ]
+}

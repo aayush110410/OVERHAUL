@@ -1,0 +1,1794 @@
+/* ================================================================
+   OVERHAUL — COMMAND CENTER v2
+   Theme: Matches homepage — #0a0a0a / #CCFF00 lime / #FF4D00 orange
+   Fonts: Bebas Neue (headings) · Space Mono (data/ui)
+   ================================================================ */
+
+/* ── LAYOUT ROOT ── */
+.ov-cc {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0a0a0a;
+  font-family: 'Space Mono', monospace;
+  color: #f5f5f5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ov-map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Edge vignette to make map edges darker and panels readable */
+.ov-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, rgba(10,10,10,0.7) 0%, transparent 30%, transparent 70%, rgba(10,10,10,0.65) 100%),
+    linear-gradient(to bottom, rgba(10,10,10,0.85) 0%, transparent 15%, transparent 80%, rgba(10,10,10,0.9) 100%);
+}
+
+/* ── MAPBOX CONTROLS ── */
+.ov-cc .mapboxgl-ctrl-group {
+  background: rgba(10, 10, 10, 0.88) !important;
+  border: 1px solid rgba(204, 255, 0, 0.15) !important;
+  border-radius: 0 !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5) !important;
+}
+
+.ov-cc .mapboxgl-ctrl-group button {
+  width: 36px !important;
+  height: 36px !important;
+  color: rgba(255,255,255,0.6) !important;
+}
+
+.ov-cc .mapboxgl-ctrl-group button + button {
+  border-top: 1px solid rgba(204, 255, 0, 0.1) !important;
+}
+
+/* ================================================================
+   BOOT LOADER
+   ================================================================ */
+.ov-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0a;
+}
+
+.ov-loader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.ov-loader-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 96px;
+  letter-spacing: 8px;
+  display: flex;
+  gap: 2px;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.ov-logo-o { color: #CCFF00; }
+.ov-logo-v { color: #f5f5f5; }
+
+.ov-loader-subtitle {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 8px;
+  color: rgba(255,255,255,0.25);
+  text-transform: uppercase;
+  margin-bottom: 40px;
+}
+
+.ov-loader-bar-wrap {
+  width: 240px;
+  height: 2px;
+  background: rgba(255,255,255,0.07);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.ov-loader-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #CCFF00, #FF4D00);
+}
+
+.ov-loader-status {
+  width: 240px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+}
+
+.ov-loader-pct {
+  color: #CCFF00;
+  font-weight: 700;
+}
+
+/* ================================================================
+   TOP NAV — matches homepage nav aesthetic
+   ================================================================ */
+.ov-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: linear-gradient(180deg, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.75) 100%);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(204, 255, 0, 0.1);
+  font-family: 'Space Mono', monospace;
+}
+
+.ov-nav-left,
+.ov-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ov-nav-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ov-nav-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  letter-spacing: 3px;
+  text-decoration: none;
+  display: flex;
+  gap: 1px;
+  line-height: 1;
+}
+
+.ov-nav-o { color: #CCFF00; }
+.ov-nav-v { color: #f5f5f5; }
+
+.ov-nav-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255,255,255,0.12);
+}
+
+.ov-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #00ff88;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.ov-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ff88;
+  box-shadow: 0 0 6px #00ff88;
+  animation: ov-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ov-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(0,255,136,0.5); }
+  50%       { opacity: 0.5; box-shadow: 0 0 12px rgba(0,255,136,0); }
+}
+
+.ov-nav-region {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 1px;
+}
+
+.ov-nav-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 6px;
+  color: rgba(255,255,255,0.3);
+}
+
+.ov-nav-clock {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.ov-nav-feeds {
+  font-size: 10px;
+  color: #CCFF00;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+
+.ov-nav-link {
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  text-decoration: none;
+  letter-spacing: 1.5px;
+  transition: color 0.3s;
+}
+
+.ov-nav-link:hover {
+  color: #CCFF00;
+}
+
+/* ================================================================
+   PANEL PRIMITIVES
+   ================================================================ */
+.ov-panel-label {
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #CCFF00;
+  font-weight: 700;
+  display: block;
+}
+
+/* ================================================================
+   LEFT: METRICS PANEL
+   .ov-metrics lives inside .ov-left-panel (not fixed itself)
+   ================================================================ */
+.ov-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(8,9,14,0.92);
+  backdrop-filter: blur(28px);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-top: 2px solid rgba(204,255,0,0.6);
+  overflow: hidden;
+}
+
+.ov-metrics-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.ov-metrics-head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-metrics-feeds-badge {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.2);
+  font-family: 'Space Mono', monospace;
+}
+
+.ov-metrics-pulse {
+  width: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #CCFF00);
+  opacity: 0.7;
+}
+
+/* Premium metric row — no icon, clean data display */
+.ov-metric {
+  background: transparent;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.2s, border-left-color 0.2s;
+  cursor: default;
+}
+
+.ov-metric:last-child { border-bottom: none; }
+
+.ov-metric:hover {
+  background: rgba(204,255,0,0.03);
+  border-left-color: rgba(204,255,0,0.5);
+}
+
+.ov-metric-accent { display: none; }
+.ov-metric-icon   { display: none; }
+
+.ov-metric-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ov-metric-label {
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+}
+
+.ov-metric-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  color: #f5f5f5;
+  line-height: 1;
+}
+
+.ov-metric-delta {
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.ov-metric-delta.good { color: #00ff88; }
+.ov-metric-delta.bad  { color: #FF4D00; }
+
+.ov-metric-source {
+  font-size: 7px;
+  color: rgba(255,255,255,0.12);
+  letter-spacing: 0.3px;
+}
+
+/* Remove feeds block — replaced by inline badge */
+
+
+/* ================================================================
+   RIGHT: CONTROL PANEL / CONSOLE
+   ================================================================ */
+.ov-console {
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  bottom: 88px;
+  z-index: 50;
+  width: 420px;
+  background: rgba(8, 9, 14, 0.94);
+  backdrop-filter: blur(28px);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-top: 2px solid #CCFF00;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
+}
+
+.ov-console.closed {
+  width: 44px;
+  background: rgba(10,10,14,0.7);
+}
+
+.ov-console-toggle {
+  position: absolute;
+  top: 50%;
+  left: -16px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 48px;
+  background: rgba(10,10,14,0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-right: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.ov-console-toggle:hover {
+  background: rgba(204,255,0,0.08);
+  color: #CCFF00;
+  border-color: rgba(204,255,0,0.2);
+}
+
+/* Console header */
+.ov-console-head {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.ov-console-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mode switch */
+.ov-mode-switch {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 2px;
+}
+
+.ov-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: transparent;
+  color: rgba(255,255,255,0.3);
+  font-size: 9px;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.ov-mode-btn.active {
+  background: rgba(204,255,0,0.12);
+  color: #CCFF00;
+}
+
+.ov-mode-btn:hover:not(.active) {
+  color: rgba(255,255,255,0.6);
+}
+
+/* ── TABS ── */
+.ov-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ov-tabs::-webkit-scrollbar { display: none; }
+
+.ov-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: rgba(255,255,255,0.28);
+  font-family: 'Space Mono', monospace;
+  font-size: 7.5px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ov-tab:hover {
+  color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.02);
+}
+
+.ov-tab.active {
+  color: #CCFF00;
+  border-bottom-color: #CCFF00;
+  background: rgba(204,255,0,0.03);
+}
+
+.ov-tab-icon { font-size: 15px; }
+.ov-tab-label { font-weight: 700; white-space: nowrap; }
+
+/* Tab content container */
+.ov-tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Scrollable tab content */
+.ov-tab-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204,255,0,0.12) transparent;
+}
+.ov-tab-scroll::-webkit-scrollbar { width: 3px; }
+.ov-tab-scroll::-webkit-scrollbar-thumb { background: rgba(204,255,0,0.15); }
+
+/* ================================================================
+   CHAT SECTION
+   ================================================================ */
+.ov-chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204,255,0,0.12) transparent;
+}
+.ov-chat::-webkit-scrollbar { width: 3px; }
+.ov-chat::-webkit-scrollbar-thumb { background: rgba(204,255,0,0.15); }
+
+.ov-chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 16px;
+}
+
+.ov-chat-empty-orb {
+  font-size: 40px;
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.ov-chat-empty p {
+  font-size: 12px;
+  color: rgba(255,255,255,0.38);
+  line-height: 1.8;
+  max-width: 260px;
+}
+
+.ov-chat-hint {
+  font-size: 10px !important;
+  color: rgba(204,255,0,0.4) !important;
+}
+
+/* Messages */
+.ov-msg {
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.ov-msg.user {
+  background: rgba(204,255,0,0.05);
+  border: 1px solid rgba(204,255,0,0.1);
+  border-left: 3px solid #CCFF00;
+  padding: 12px 16px;
+}
+
+.ov-msg.assistant {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-left: 3px solid rgba(255,255,255,0.1);
+  padding: 12px 16px;
+}
+
+.ov-msg.error {
+  border-color: rgba(255,77,0,0.3);
+  border-left-color: #FF4D00;
+  background: rgba(255,77,0,0.06);
+}
+
+.ov-msg.analyzing {
+  border-left-color: #CCFF00;
+  padding: 14px 16px;
+}
+
+.ov-msg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ov-msg-role {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.45);
+}
+
+.ov-msg.user .ov-msg-role { color: #CCFF00; }
+
+.ov-msg-meta {
+  font-size: 8px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.3px;
+}
+
+.ov-msg-body {
+  color: rgba(255,255,255,0.82);
+}
+
+.ov-msg-body p       { margin: 0 0 8px; }
+.ov-msg-body p:last-child { margin-bottom: 0; }
+
+.ov-msg-body h1,.ov-msg-body h2,.ov-msg-body h3,.ov-msg-body h4 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: 1px;
+  color: #CCFF00;
+  margin: 14px 0 6px;
+}
+
+.ov-msg-body ul,.ov-msg-body ol { padding-left: 18px; margin: 6px 0; }
+.ov-msg-body li { margin-bottom: 4px; }
+.ov-msg-body strong { color: #CCFF00; font-weight: 700; }
+
+.ov-msg-body code {
+  background: rgba(204,255,0,0.08);
+  padding: 1px 5px;
+  font-size: 11px;
+  color: #CCFF00;
+}
+
+.ov-msg-body pre {
+  background: rgba(0,0,0,0.3);
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.ov-msg-body pre code { background: none; padding: 0; }
+
+/* Progress bar inside analyzing bubble */
+.ov-progress-bar {
+  width: 100%;
+  height: 2px;
+  background: rgba(255,255,255,0.07);
+  overflow: hidden;
+  margin: 8px 0 10px;
+}
+
+.ov-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #CCFF00, #FF4D00);
+  transition: width 0.3s;
+}
+
+.ov-progress-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.ov-progress-dots span {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(204,255,0,0.5);
+  animation: ov-dot-bounce 1.2s ease-in-out infinite;
+}
+.ov-progress-dots span:nth-child(2) { animation-delay: 0.15s; }
+.ov-progress-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ov-dot-bounce {
+  0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
+  40%           { transform: scale(1.4); opacity: 1; }
+}
+
+/* Error banner */
+.ov-error {
+  margin: 0 18px;
+  padding: 10px 14px;
+  background: rgba(255,77,0,0.07);
+  border: 1px solid rgba(255,77,0,0.2);
+  border-left: 2px solid #FF4D00;
+  font-size: 11px;
+  color: #FF7040;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+.ov-error button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #FF7040;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+/* ── INPUT AREA ── */
+.ov-input-area {
+  padding: 12px 18px 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.ov-input {
+  flex: 1;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  padding: 10px 14px;
+  color: #f5f5f5;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ov-input::placeholder { color: rgba(255,255,255,0.18); }
+.ov-input:focus { border-color: rgba(204,255,0,0.28); }
+
+.ov-send {
+  width: 42px;
+  height: 42px;
+  background: rgba(204,255,0,0.08);
+  border: 1px solid rgba(204,255,0,0.25);
+  color: #CCFF00;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.ov-send:hover:not(:disabled) {
+  background: rgba(204,255,0,0.18);
+  border-color: rgba(204,255,0,0.5);
+  box-shadow: 0 0 20px rgba(204,255,0,0.15);
+}
+
+.ov-send:disabled { opacity: 0.25; cursor: not-allowed; }
+
+.ov-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(204,255,0,0.2);
+  border-top-color: #CCFF00;
+  border-radius: 50%;
+  animation: ov-spin 0.7s linear infinite;
+}
+
+@keyframes ov-spin { to { transform: rotate(360deg); } }
+
+.ov-input-hint {
+  padding: 0 18px 12px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.16);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   BOTTOM: QUICK SCENARIOS
+   ================================================================ */
+.ov-scenarios {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ov-scenarios-label {
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: rgba(255,255,255,0.2);
+  text-transform: uppercase;
+}
+
+.ov-scenarios-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.ov-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(10,10,14,0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.55);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+  white-space: nowrap;
+}
+
+.ov-pill:hover {
+  background: rgba(204,255,0,0.07);
+  border-color: rgba(204,255,0,0.25);
+  color: #CCFF00;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.ov-pill.active {
+  background: rgba(204,255,0,0.1);
+  border-color: rgba(204,255,0,0.4);
+  color: #CCFF00;
+  box-shadow: 0 0 16px rgba(204,255,0,0.1);
+}
+
+.ov-pill-icon { font-size: 14px; }
+.ov-pill-label { font-weight: 700; }
+
+/* ================================================================
+   LEFT PANEL — wraps metrics + IntelligencePanel
+   ================================================================ */
+.ov-left-panel {
+  position: fixed;
+  top: 60px;
+  left: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 220px;
+  /* Keep above bottom legend (which is at bottom: 88px + ~180px tall) */
+  max-height: calc(100vh - 330px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.ov-left-panel::-webkit-scrollbar { display: none; }
+
+/* Metrics no longer need their own fixed position */
+.ov-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ================================================================
+   LEGEND CONTAINER
+   ================================================================ */
+.ov-legend-container {
+  position: fixed;
+  bottom: 88px;
+  left: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ov-legend {
+  background: rgba(10,10,14,0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-left: 2px solid rgba(204,255,0,0.3);
+  padding: 12px 14px;
+  min-width: 150px;
+}
+
+.ov-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.3px;
+  padding: 3px 0;
+}
+
+.ov-legend-row-label { flex: 1; }
+.ov-legend-row-range { color: rgba(255,255,255,0.2); font-size: 8px; }
+
+.ov-legend-line {
+  width: 24px;
+  height: 3px;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+.ov-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   PARTICLE CANVAS
+   ================================================================ */
+.ov-particle-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* ================================================================
+   MAP CLICK OVERLAY HINT
+   ================================================================ */
+.ov-click-overlay-hint {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(10,10,14,0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(204,255,0,0.25);
+  border-top: 2px solid #CCFF00;
+  padding: 10px 20px;
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.5px;
+  color: rgba(255,255,255,0.8);
+  white-space: nowrap;
+  animation: ov-hint-fade 0.3s ease;
+}
+
+@keyframes ov-hint-fade {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.ov-click-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  animation: ov-pulse 1.2s ease-in-out infinite;
+}
+.ov-click-dot.start { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+.ov-click-dot.end   { background: #FF4D00; box-shadow: 0 0 8px #FF4D00; }
+
+.ov-click-cancel {
+  margin-left: 8px;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.4);
+  font-size: 10px;
+  font-family: 'Space Mono', monospace;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ov-click-cancel:hover { border-color: #FF4D00; color: #FF4D00; }
+
+/* Cursor changes in click mode */
+.ov-cc.cursor-mode-start .ov-map { cursor: crosshair !important; }
+.ov-cc.cursor-mode-end   .ov-map { cursor: crosshair !important; }
+
+/* ================================================================
+   MAP MARKERS
+   ================================================================ */
+.ov-map-marker { pointer-events: none; }
+
+.ov-marker-pin {
+  width: 36px;
+  height: 36px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.ov-marker-pin.green  { background: #00ff88; }
+.ov-marker-pin.orange { background: #FF4D00; }
+
+.ov-marker-pin span {
+  transform: rotate(45deg);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  color: #0a0a0a;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ov-marker-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50% 50% 50% 0;
+  border: 2px solid rgba(255,255,255,0.3);
+  animation: ov-ring-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ov-ring-pulse {
+  0%,100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+
+/* ================================================================
+   NAV — new elements
+   ================================================================ */
+.ov-nav-route-badge {
+  font-size: 10px;
+  color: #CCFF00;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ================================================================
+   CONSOLE — new elements
+   ================================================================ */
+.ov-console-route-active {
+  font-size: 8px;
+  color: #00ff88;
+  letter-spacing: 1px;
+  font-weight: 700;
+  margin-left: 8px;
+  animation: ov-pulse 2s ease-in-out infinite;
+}
+
+.ov-tab.route-tab .ov-tab-icon { position: relative; }
+
+.ov-tab-badge {
+  position: absolute;
+  top: 6px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ff88;
+  box-shadow: 0 0 6px #00ff88;
+}
+
+/* ================================================================
+   TRAFFIC LEGEND COMPONENT
+   ================================================================ */
+.ov-traffic-legend {
+  background: rgba(10,10,14,0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-left: 2px solid rgba(204,255,0,0.3);
+  padding: 12px 14px;
+  min-width: 160px;
+}
+
+.ov-tl-live {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.ov-tl-live-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.3px;
+  padding: 2px 0;
+}
+
+/* ================================================================
+   ROUTE SELECTOR COMPONENT
+   ================================================================ */
+.ov-route-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ov-rs-click-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ov-rs-click-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.ov-rs-click-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.45);
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ov-rs-click-btn:hover { background: rgba(255,255,255,0.07); color: #f5f5f5; }
+.ov-rs-click-btn.active-start { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.3); color: #00ff88; }
+.ov-rs-click-btn.active-end   { background: rgba(255,77,0,0.08);  border-color: rgba(255,77,0,0.3);  color: #FF4D00; }
+
+.ov-rs-hint {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.03);
+  border: 1px dashed rgba(255,255,255,0.1);
+  padding: 8px 12px;
+  text-align: center;
+  letter-spacing: 0.3px;
+  animation: ov-hint-blink 1.5s ease-in-out infinite;
+}
+
+@keyframes ov-hint-blink {
+  0%,100% { border-color: rgba(255,255,255,0.1); }
+  50%      { border-color: rgba(204,255,0,0.3); }
+}
+
+.ov-rs-field { display: flex; flex-direction: column; gap: 5px; position: relative; }
+
+.ov-rs-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ov-rs-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ov-rs-label {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.35);
+  font-weight: 700;
+  flex: 1;
+}
+
+.ov-rs-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(204,255,0,0.2);
+  border-top-color: #CCFF00;
+  border-radius: 50%;
+  animation: ov-spin 0.7s linear infinite;
+}
+
+.ov-rs-input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 9px 12px;
+  color: #f5f5f5;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ov-rs-input::placeholder { color: rgba(255,255,255,0.2); }
+.ov-rs-input:focus { border-color: rgba(204,255,0,0.3); }
+
+.ov-rs-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: rgba(10,10,14,0.98);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-top: none;
+  backdrop-filter: blur(16px);
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ov-rs-results::-webkit-scrollbar { display: none; }
+
+.ov-rs-result {
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ov-rs-result:hover { background: rgba(204,255,0,0.06); }
+.ov-rs-result-name {
+  font-size: 10px;
+  color: rgba(255,255,255,0.7);
+  display: block;
+  letter-spacing: 0.2px;
+  line-height: 1.4;
+}
+
+.ov-rs-connector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.ov-rs-connector-line { flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+.ov-rs-connector-dist { font-size: 12px; color: rgba(255,255,255,0.2); }
+
+.ov-rs-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+.ov-rs-analyze {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 16px;
+  background: rgba(204,255,0,0.1);
+  border: 1px solid rgba(204,255,0,0.3);
+  color: #CCFF00;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.ov-rs-analyze:hover:not(:disabled) { background: rgba(204,255,0,0.18); box-shadow: 0 0 20px rgba(204,255,0,0.15); }
+.ov-rs-analyze:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.ov-rs-btn-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(204,255,0,0.2);
+  border-top-color: #CCFF00;
+  border-radius: 50%;
+  animation: ov-spin 0.7s linear infinite;
+}
+
+.ov-rs-clear {
+  padding: 11px 12px;
+  background: rgba(255,77,0,0.06);
+  border: 1px solid rgba(255,77,0,0.2);
+  color: rgba(255,77,0,0.7);
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ov-rs-clear:hover { background: rgba(255,77,0,0.12); color: #FF4D00; }
+
+.ov-rs-status {
+  display: flex;
+  gap: 6px;
+}
+
+.ov-rs-chip {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  font-size: 9px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.ov-rs-chip.set { background: rgba(0,255,136,0.05); border-color: rgba(0,255,136,0.2); color: #00ff88; }
+
+/* Route summary inline in ROUTE tab */
+.ov-route-summary-inline {
+  margin-top: 16px;
+  background: rgba(204,255,0,0.04);
+  border: 1px solid rgba(204,255,0,0.12);
+  border-left: 3px solid #CCFF00;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ov-rs-summary-title {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: #CCFF00;
+  font-weight: 700;
+}
+
+.ov-rs-summary-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ov-rs-summary-congestion {
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+}
+
+.ov-rs-suggestion {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.6;
+  padding-left: 2px;
+}
+
+/* ================================================================
+   INTELLIGENCE PANEL COMPONENT
+   ================================================================ */
+.ov-intel-panel {
+  background: rgba(8,9,14,0.96);
+  backdrop-filter: blur(28px);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-left: 3px solid rgba(204,255,0,0.7);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  max-height: 380px;
+  overflow: hidden;
+}
+
+.ov-intel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+
+.ov-intel-route-name {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  margin-top: 4px;
+  letter-spacing: 0.2px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-intel-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.ov-intel-close:hover { color: #FF4D00; }
+
+.ov-intel-chips {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.ov-intel-chip {
+  padding: 3px 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 9px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.ov-intel-chip.lime   { background: rgba(204,255,0,0.08); border-color: rgba(204,255,0,0.2); color: #CCFF00; }
+.ov-intel-chip.orange { background: rgba(255,77,0,0.08);  border-color: rgba(255,77,0,0.2);  color: #FF4D00; }
+
+.ov-intel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204,255,0,0.12) transparent;
+}
+.ov-intel-scroll::-webkit-scrollbar { width: 3px; }
+.ov-intel-scroll::-webkit-scrollbar-thumb { background: rgba(204,255,0,0.15); }
+
+.ov-intel-section {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.ov-intel-section-label {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.25);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.ov-ip-row { margin-bottom: 8px; }
+
+.ov-ip-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.ov-ip-row-label {
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.3px;
+}
+
+.ov-ip-row-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  color: #f5f5f5;
+  line-height: 1;
+}
+
+.ov-ip-row-sub {
+  font-size: 8px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.2px;
+  margin-bottom: 4px;
+}
+
+.ov-ip-bar {
+  height: 2px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.ov-ip-bar-fill {
+  height: 100%;
+  transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+
+.ov-intel-source {
+  font-size: 8px;
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 0.3px;
+  margin-top: 6px;
+}
+
+.ov-ip-suggestion {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.ov-ip-suggestion-arrow {
+  color: #CCFF00;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ov-intel-hotspot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ov-intel-hotspot-badge {
+  padding: 2px 7px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #0a0a0a;
+}
+
+.ov-intel-hotspot-score {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  color: rgba(255,255,255,0.6);
+}
+
+/* ================================================================
+   RESPONSIVE — MOBILE
+   ================================================================ */
+@media (max-width: 900px) {
+  .ov-console {
+    width: calc(100vw - 40px);
+    left: 20px;
+    right: 20px;
+    top: auto;
+    bottom: 130px;
+    max-height: 55vh;
+  }
+
+  .ov-left-panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 12px;
+    background: rgba(10,10,14,0.95);
+    z-index: 60;
+  }
+
+  .ov-metrics {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .ov-metrics-head,
+  .ov-feeds,
+  .ov-intel-panel { display: none; }
+
+  .ov-metric { min-width: 140px; flex-shrink: 0; }
+
+  .ov-scenarios { bottom: 190px; }
+  .ov-legend-container { display: none; }
+}
+
+/* =================================================================
+   OVERHAUL AI v2 — Chat UI Upgrades (conversation memory, halos, agent trace)
+   ================================================================= */
+
+/* GPU acceleration for all animated panels */
+.ov-left-panel,
+.ov-console,
+.ov-chat,
+.ov-progress-bar,
+.ov-intel-panel {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Map canvas GPU hint */
+.ov-map canvas,
+.ov-particle-canvas {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* ── Empty state capability chips ── */
+.ov-chat-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.ov-cap-chip {
+  padding: 4px 10px;
+  background: rgba(204, 255, 0, 0.07);
+  border: 1px solid rgba(204, 255, 0, 0.18);
+  border-radius: 20px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: rgba(204, 255, 0, 0.75);
+  white-space: nowrap;
+}
+
+/* ── Message badges row ── */
+.ov-msg-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.ov-badge-model {
+  padding: 1px 7px;
+  background: rgba(204, 255, 0, 0.08);
+  border: 1px solid rgba(204, 255, 0, 0.2);
+  border-radius: 3px;
+  font-size: 8px;
+  color: rgba(204, 255, 0, 0.6);
+  letter-spacing: 0.03em;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-badge-time {
+  padding: 1px 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.ov-badge-engines {
+  padding: 1px 7px;
+  background: rgba(80, 120, 255, 0.08);
+  border: 1px solid rgba(80, 120, 255, 0.2);
+  border-radius: 3px;
+  font-size: 8px;
+  color: rgba(100, 149, 255, 0.7);
+}
+
+.ov-badge-halos {
+  padding: 1px 7px;
+  background: rgba(204, 255, 0, 0.12);
+  border: 1px solid rgba(204, 255, 0, 0.3);
+  border-radius: 3px;
+  font-size: 8px;
+  color: rgb(204, 255, 0);
+  animation: halo-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes halo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ── Analyzing label ── */
+.analyzing-label {
+  font-size: 9px;
+  color: rgba(204, 255, 0, 0.7);
+  letter-spacing: 0.06em;
+  animation: blink-txt 1.2s step-end infinite;
+}
+
+@keyframes blink-txt {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Progress percentage ── */
+.ov-progress-pct {
+  font-size: 9px;
+  color: rgba(204, 255, 0, 0.55);
+  text-align: right;
+  margin-top: 3px;
+  letter-spacing: 0.05em;
+}
+
+/* ── Agent trace collapsible ── */
+.ov-agent-trace {
+  margin-top: 10px;
+  border-top: 1px solid rgba(204, 255, 0, 0.08);
+  padding-top: 8px;
+}
+
+.ov-agent-trace summary {
+  font-size: 9px;
+  color: rgba(204, 255, 0, 0.45);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.ov-agent-trace summary::-webkit-details-marker { display: none; }
+
+.ov-agent-trace summary::before {
+  content: '▸ ';
+  color: rgba(204, 255, 0, 0.4);
+}
+
+.ov-agent-trace[open] summary::before {
+  content: '▾ ';
+}
+
+.ov-trace-steps {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ov-trace-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.4;
+}
+
+.ov-trace-idx {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(204, 255, 0, 0.12);
+  border: 1px solid rgba(204, 255, 0, 0.2);
+  color: rgba(204, 255, 0, 0.6);
+  font-size: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ov-trace-txt {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* ── Critique block ── */
+.ov-msg-critique {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 140, 0, 0.06);
+  border-left: 2px solid rgba(255, 140, 0, 0.4);
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ov-critique-label {
+  font-size: 8px;
+  color: rgba(255, 140, 0, 0.7);
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.ov-critique-text {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.4;
+}
+
+/* ── Input hint updated ── */
+.ov-input-hint {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.25);
+  padding: 4px 12px 8px;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+/* ── Progress bar smoother animation ── */
+.ov-progress-fill {
+  transition: width 0.15s linear;
+  will-change: width;
+}
+
+/* ── Route report inline map hover ── */
+.ov-rs-summary-inline {
+  contain: layout style;
+}
+

@@ -1,0 +1,165 @@
+{
+  "timestamp": "2026-03-08T16:35:34.672866",
+  "models": [
+    {
+      "model": "ncr_aqi_model",
+      "type": "RandomForestRegressor",
+      "samples": 10965,
+      "features": [
+        "pm25_real",
+        "pm10_real",
+        "month",
+        "day_of_week",
+        "day_of_year",
+        "is_weekend",
+        "season_code",
+        "city_code",
+        "festival_flag"
+      ],
+      "mae": 25.94,
+      "rmse": 31.62,
+      "r2": 0.7745,
+      "cv_mae": 26.29,
+      "feature_importances": {
+        "pm25_real": 0.9093,
+        "pm10_real": 0.0281,
+        "city_code": 0.0272,
+        "day_of_year": 0.022,
+        "day_of_week": 0.0097,
+        "month": 0.0022,
+        "is_weekend": 0.0009,
+        "season_code": 0.0006,
+        "festival_flag": 0.0
+      }
+    },
+    {
+      "model": "ncr_traffic_speed_model",
+      "type": "GradientBoostingRegressor",
+      "samples": 2688,
+      "features": [
+        "Hour",
+        "Vehicles_Total",
+        "is_peak",
+        "is_night",
+        "city_code",
+        "EVs",
+        "Weather_Flag",
+        "Festival_Flag"
+      ],
+      "mae": 4.15,
+      "rmse": 6.41,
+      "r2": 0.744,
+      "cv_mae": 9.84,
+      "feature_importances": {
+        "Vehicles_Total": 0.4391,
+        "EVs": 0.1778,
+        "city_code": 0.1402,
+        "Hour": 0.1176,
+        "is_peak": 0.0847,
+        "is_night": 0.0389,
+        "Festival_Flag": 0.0016,
+        "Weather_Flag": 0.0
+      }
+    },
+    {
+      "model": "ncr_congestion_model",
+      "type": "GradientBoostingClassifier",
+      "samples": 2688,
+      "features": [
+        "Hour",
+        "Vehicles_Total",
+        "is_peak",
+        "is_night",
+        "city_code",
+        "EVs",
+        "Weather_Flag"
+      ],
+      "accuracy": 0.7974,
+      "cv_accuracy": 0.6626,
+      "classes": [
+        "Low",
+        "Moderate",
+        "High",
+        "Severe"
+      ]
+    }
+  ],
+  "baselines": {
+    "Delhi": {
+      "aqi": {
+        "mean": 249.3,
+        "median": 245.5,
+        "min": 204,
+        "max": 342,
+        "pm25_mean": 164.1,
+        "pm10_mean": 347.4,
+        "records": 30
+      },
+      "traffic": {
+        "avg_speed_kmph": 40.4,
+        "congestion_pct_mean": 23.1,
+        "peak_congestion_pct": 37.6,
+        "offpeak_speed_kmph": 46.3,
+        "total_vehicles_mean": 14042.0,
+        "records": 336
+      }
+    },
+    "Noida": {
+      "aqi": {
+        "mean": 240.3,
+        "median": 235.0,
+        "min": 157,
+        "max": 295,
+        "pm25_mean": 136.9,
+        "pm10_mean": 283.4,
+        "records": 30
+      },
+      "traffic": {
+        "avg_speed_kmph": 41.0,
+        "congestion_pct_mean": 29.8,
+        "peak_congestion_pct": 43.4,
+        "offpeak_speed_kmph": 47.2,
+        "total_vehicles_mean": 11040.0,
+        "records": 1008
+      }
+    },
+    "Ghaziabad": {
+      "aqi": {
+        "mean": 259.5,
+        "median": 274.0,
+        "min": 206,
+        "max": 298,
+        "pm25_mean": 159.2,
+        "pm10_mean": 332.3,
+        "records": 30
+      },
+      "traffic": {
+        "avg_speed_kmph": 33.9,
+        "congestion_pct_mean": 30.5,
+        "peak_congestion_pct": 42.7,
+        "offpeak_speed_kmph": 38.8,
+        "total_vehicles_mean": 11790.0,
+        "records": 336
+      }
+    },
+    "Gurugram": {
+      "aqi": {
+        "mean": 252.7,
+        "median": 257.5,
+        "min": 149,
+        "max": 299,
+        "pm25_mean": 136.7,
+        "pm10_mean": 290.6,
+        "records": 30
+      },
+      "traffic": {
+        "avg_speed_kmph": 36.2,
+        "congestion_pct_mean": 29.9,
+        "peak_congestion_pct": 42.9,
+        "offpeak_speed_kmph": 41.8,
+        "total_vehicles_mean": 12006.0,
+        "records": 1008
+      }
+    }
+  }
+}

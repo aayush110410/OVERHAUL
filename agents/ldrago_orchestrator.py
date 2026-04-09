@@ -71,7 +71,57 @@ async def run_simulation_engines(
         return {"error": str(e), "impactCards": [], "recommendations": [], "domains": {}}
 
 
-async def llm_initial_analysis(query: str, context: Dict[str, Any], ncr_data: str = "") -> str:
+def _format_engine_data_for_llm(engine_results: Dict[str, Any]) -> str:
+    """Format engine simulation results into a structured text block for the LLM prompt.
+    
+    This ensures the LLM narrative is grounded in actual computed data,
+    not hallucinated numbers.
+    """
+    lines = ["## SIMULATION RESULTS (from physics-based engines — use these numbers):"]
+    
+    domains = engine_results.get("domains", {})
+    for domain_name, domain_data in domains.items():
+        metrics = domain_data.get("metrics", {})
+        if not metrics:
+            continue
+        lines.append(f"\n### {domain_name.upper()} Engine:")
+        for key, value in metrics.items():
+            # Format numbers nicely
+            if isinstance(value, float):
+                lines.append(f"  - {key}: {value:,.2f}")
+            elif isinstance(value, int):
+                lines.append(f"  - {key}: {value:,}")
+            else:
+                lines.append(f"  - {key}: {value}")
+    
+    # Add impact cards summary
+    impact_cards = engine_results.get("impactCards", [])
+    if impact_cards:
+        lines.append("\n### Key Impact Cards:")
+        for card in impact_cards:
+            metric = card.get("metric", "")
+            value = card.get("value", "")
+            delta = card.get("delta", "")
+            lines.append(f"  - {metric}: {value} ({delta})")
+    
+    # Add recommendations from engines
+    recommendations = engine_results.get("recommendations", [])
+    if recommendations:
+        lines.append("\n### Engine Recommendations:")
+        for i, rec in enumerate(recommendations[:8], 1):
+            lines.append(f"  {i}. {rec}")
+    
+    # Add warnings
+    warnings = engine_results.get("warnings", [])
+    if warnings:
+        lines.append("\n### Engine Warnings:")
+        for w in warnings:
+            lines.append(f"  ⚠ {w}")
+    
+    return "\n".join(lines)
+
+
+async def llm_initial_analysis(query: str, context: Dict[str, Any], ncr_data: str = "", engine_results: Dict[str, Any] = None) -> str:
     """Get initial analysis from the best available model.
     
     Model priority: Llama 3.3 70B (deep analysis) → GPT-OSS-120B → Qwen 3 4B → Gemini 3.1 Pro.
@@ -80,6 +130,11 @@ async def llm_initial_analysis(query: str, context: Dict[str, Any], ncr_data: st
         cfg = load_llm_config()
         if not qwen_enabled(cfg) and not gemini_enabled(cfg):
             return "[LLM not configured]"
+        
+        # Build engine data summary for grounding
+        engine_data_block = ""
+        if engine_results and not engine_results.get("error"):
+            engine_data_block = _format_engine_data_for_llm(engine_results)
         
         # Include local NCR data for grounding
         simple_context = f"""Query: {query}
@@ -90,182 +145,56 @@ Additional Live Context:
 - Traffic Speed: {context.get('live_speed', 'N/A')} km/h
 - PM2.5: {context.get('pm25', 'N/A')} µg/m³
 - Location: {context.get('location', 'Delhi NCR')}
-- Time: {datetime.now().strftime('%Y-%m-%d %H:%M %A')}"""
+- Time: {datetime.now().strftime('%Y-%m-%d %H:%M %A')}
+
+{engine_data_block}"""
         
-        system = """You are OVERHAUL's expert traffic and environmental analyst for Delhi NCR (Delhi, Noida, Ghaziabad).
+        system = """You are OVERHAUL — an advanced urban intelligence system analyzing traffic, air quality, and mobility across Delhi NCR (Delhi, Noida, Ghaziabad).
 
-Your job is to provide **detailed, well-explained, easy-to-read** analysis. Write like you're explaining to someone who wants to understand the full picture.
+You produce expert-grade analysis that is clear, specific, and immediately useful. Your writing is authoritative but accessible — like a senior urban planner briefing a city leader.
 
-## WRITING STYLE:
-- Use simple, clear language (no jargon)
-- Explain the "why" behind every number and recommendation
-- Use proper spacing between sections for readability
-- Include specific numbers and percentages
-- Make it engaging and informative
+## CRITICAL RULES — NO HALLUCINATION:
 
-## RESPONSE FORMAT (Use exactly this structure):
+- **ONLY cite numbers that appear in the DATA CONTEXT or SIMULATION RESULTS sections below.** Do not invent statistics.
+- If the data says Delhi AQI is 283, say 283 — do not round to 280 or 300 or invent a different number.
+- If a metric is not in the provided data, say "data not available" — do NOT guess.
+- The SIMULATION RESULTS section contains outputs from physics-based models. These are the authoritative numbers for projections and impact estimates. Use them directly.
+- The NCR DATA section contains real CSV data from monitoring stations. These are the authoritative baselines. Use them directly.
+- Never contradict the simulation results with your own estimates.
 
-## 
-Urban Mobility & Environmental Intelligence Report
+## WRITING PRINCIPLES:
 
-⸻
+1. **Lead with the answer.** Open with 2–3 sentences that directly address the user's question. No preamble.
+2. **Ground every claim in the provided data.** Cite specific speeds, AQI values, congestion percentages, and corridor names from the data context. If data is not provided, state it clearly.
+3. **Explain causation, not just correlation.** Don't just report that congestion is high — explain *why* (signal density, bottleneck geometry, demand surge, construction, weather).
+4. **Use natural structure.** Organize with clear markdown headers and short paragraphs. Use bullet points for lists of recommendations or hotspots, but write analysis in flowing prose.
+5. **Be specific about geography.** Name actual roads, intersections, sectors, and corridors from Delhi NCR.
+6. **Keep it concise but complete.** Aim for depth where it matters, brevity where it doesn't. Cut filler.
+7. **End with actionable guidance.** Recommendations should be concrete and ranked by impact.
 
-1. Executive Response
+## RESPONSE STRUCTURE:
 
-(Direct answer to the user’s prompt)
-A concise, decision-ready response addressing the user’s exact question in 2–4 sentences.
-This section:
-	•	Synthesizes traffic + air quality (if relevant)
-	•	Mentions only the cities requested
-	•	States impact and urgency level
+Adapt sections based on what the query actually needs. Skip sections that aren't relevant.
 
-This section alone should satisfy an impatient user.
+### Direct Answer
+2–4 sentences answering the user's exact question using the data provided.
 
-⸻
+### Current Conditions
+Cite specific numbers from the NCR DATA section — actual AQI values, speeds, congestion percentages per city.
 
-2. Analysis Scope & Context
+### Simulation Insights
+If SIMULATION RESULTS are provided, summarize the key findings: projected impacts, speed changes, emission reductions, cost estimates. Use the exact numbers from the simulation.
 
-Cities Covered:
-	•	{City A}
-	•	{City B (if applicable)}
-	•	{City C (if applicable)}
+### Recommendations
+Numbered, ranked by impact. Each recommendation should be actionable and specific.
 
-Time Horizon:
-	•	Current conditions
-	•	Short-term projection (next 6–12 hours)
-
-Analytical Domains:
-	•	Urban traffic flow
-	•	Ambient air quality
-	•	Cross-domain interaction (if relevant to the prompt)
-
-⸻
-
-3. Key Findings Snapshot
-
-(Visual, scannable, zero explanation)
-
-Indicator	{City A}	{City B}	{City C}
-Traffic Flow	🔴 / 🟠 / 🟢	🔴 / 🟠 / 🟢	🔴 / 🟠 / 🟢
-Avg Speed	X km/h	X km/h	X km/h
-Congestion Level	X%	X%	X%
-AQI Category	X	X	X
-Risk Level	Low / Moderate / High	Low / Moderate / High	Low / Moderate / High
-
-Rows appear only if data is relevant to the user’s query.
-
-⸻
-
-4. City-Level Diagnostics
-
-(Repeatable block — instantiated only for queried cities)
-
-{City Name}
-
-Observed Metrics
-	•	Average vehicular speed: X km/h
-	•	Congestion index: X%
-	•	AQI / PM2.5 level: X
-
-Critical Stress Zones
-	•	{Area / Corridor 1}
-	•	{Area / Corridor 2}
-	•	{Area / Corridor 3 (if applicable)}
-
-System Behavior
-	•	Flow efficiency: Below / Near / Above optimal
-	•	Congestion driver: Structural / Demand-driven / Incident-driven
-	•	Pollution accumulation tendency: Low / Medium / High
-
-⸻
-
-5. Comparative Analysis
-
-(Rendered only if ≥2 cities are requested)
-
-Relative Performance
-	•	{City A} exhibits higher congestion intensity compared to {City B}
-	•	{City C} shows elevated pollution sensitivity under similar traffic loads
-
-Key Differentiators
-	•	Infrastructure capacity
-	•	Vehicle mix (private vs commercial)
-	•	Traffic signal density
-	•	Urban ventilation (open vs enclosed corridors)
-
-⸻
-
-6. Cross-System Interaction Analysis
-
-(Traffic ↔ Air Quality)
-
-Observed Coupling Effects
-	•	Low-speed traffic increases per-km particulate emissions
-	•	Congestion clusters correlate with localized AQI spikes
-	•	Peak traffic windows act as pollution multipliers
-
-Inference
-Traffic congestion under current conditions is a primary amplifier of environmental and health risk rather than a secondary factor.
-
-⸻
-
-7. Impact Assessment
-
-Mobility Impact
-	•	Increased commute time volatility
-	•	Reduced predictability during peak windows
-	•	Elevated energy and fuel inefficiency
-
-Health & Environmental Impact
-	•	Short-term respiratory stress likely
-	•	Disproportionate impact on sensitive populations
-	•	Outdoor exposure cost elevated near traffic corridors
-
-⸻
-
-8. Evidence-Based Recommendations
-
-(Ranked by impact)
-
-Immediate Actions
-	1.	Avoid peak congestion corridors where possible
-	2.	Shift travel timing by ±30–60 minutes
-	3.	Prefer mass transit or low-exposure routes
-
-Exposure Mitigation
-	4.	Reduce outdoor activity in high-AQI microzones
-	5.	Use cabin / indoor filtration where available
-
-Planning Guidance
-	6.	Add buffer time for critical commutes
-	7.	Remote or hybrid work advised under high-risk conditions
-
-⸻
-
-9. Short-Term Outlook
-
-(6–12 Hour Horizon)
-	•	Traffic Trend: Improving / Stable / Deteriorating
-	•	Air Quality Trend: Improving / Stable / Deteriorating
-	•	Primary Drivers: Traffic volume, weather dispersion, urban activity cycles
-
-⸻
-
-10. Bottom-Line Insight
-
-(One sentence, high authority)
-
-Current conditions represent a compound urban stress scenario, where small behavioral adjustments can significantly reduce travel inefficiency and health exposure.
+### Outlook
+Brief projection if relevant.
 
 ---
 
-## 📈 Data Sources & Confidence
+Respond in clean markdown. No emojis in headers. Use bold for emphasis sparingly. Write with confidence and precision."""
 
-- Traffic data: Source and freshness
-- AQI data: Source and last updated
-- Confidence level: High/Medium/Low and why
-
-Be thorough, educational, and helpful. Users should finish reading and feel they truly understand the situation."""
         
         response = await llm_chat_text(
             prompt=simple_context,
@@ -296,28 +225,19 @@ async def gemini_final_synthesis(
     5. Produces the final comprehensive answer
     """
     
-    system = """You are LDRAGo, the master AI orchestrator for OVERHAUL - an urban mobility analysis platform for Delhi NCR.
+    system = """You are LDRAGo, the master AI synthesis layer for OVERHAUL — an urban mobility and environmental intelligence platform covering Delhi NCR.
 
-COVERAGE AREA: Delhi NCR (National Capital Region)
-- DELHI: All districts, Ring Road, ITO, CP, Dwarka, Rohini, South Delhi, IGI Airport
-- NOIDA: Sectors 1-150+, Greater Noida, Noida Expressway, DND Flyway
-- GHAZIABAD: Indirapuram, Vaishali, Kaushambi, Raj Nagar, NH24, RRTS corridor
+Your task: Take the raw outputs from multiple specialist AI agents and one LLM analysis, then produce a single, polished, authoritative response.
 
-Your role is to:
-1. Synthesize inputs from multiple specialist AI agents covering ALL THREE cities
-2. Cross-check the LLM analysis for accuracy
-3. Ensure the response covers Delhi, Noida, AND Ghaziabad appropriately
-4. Remove any ambiguity or contradictions between sources
-5. Produce a clear, comprehensive, actionable final response
+## YOUR SYNTHESIS RULES:
 
-Guidelines:
-- Cover all three cities (Delhi, Noida, Ghaziabad) in your response
-- Use specific numbers and cite sources when available
-- If agents disagree, note the discrepancy and give your best judgment
-- Note differences between cities (e.g., Delhi EV policy vs UP policy)
-- Structure the response clearly with sections
-- Be concise but thorough
-- End with actionable recommendations for each city"""
+1. **Resolve conflicts.** If agents disagree on a metric, state the range and your best judgment. Never silently pick one.
+2. **Eliminate redundancy.** Merge overlapping insights. The user should never read the same point twice.
+3. **Upgrade specificity.** Replace vague claims with the most specific data available from any agent. Name corridors, cite numbers, state time windows.
+4. **Write naturally.** Produce clean prose with markdown structure. No rigid templates. No placeholder values (X, {City A}, etc). If data isn't available, say so briefly.
+5. **Be honest about confidence.** If data is stale or sparse, note it. Don't fabricate precision.
+6. **Cover only what's relevant.** If the user asked about Noida traffic, don't pad with irrelevant Delhi AQI paragraphs.
+7. **Keep it tight.** A perfect synthesis is shorter than the combined agent outputs, not longer."""
 
     # Build the synthesis prompt
     agent_summaries = []
@@ -347,16 +267,9 @@ Guidelines:
 
 ---
 
-Now synthesize all the above into a final, comprehensive response for the user.
+Now synthesize all the above into a single, polished response for the user.
 
-Structure your response as:
-1. **Executive Summary** (2-3 sentences answering the core query)
-2. **Current Situation** (traffic, AQI, weather conditions)
-3. **Key Insights** (from agent analyses)
-4. **Recommendations** (actionable steps)
-5. **Data Sources** (brief mention of where data came from)
-
-Be specific, use numbers, and ensure consistency across all inputs."""
+Write in clean markdown. Lead with a direct answer (2-3 sentences), then provide analysis and recommendations as needed. Be specific, cite numbers, name roads and corridors. Keep it authoritative and concise."""
 
     try:
         response = await call_gemini(
@@ -460,8 +373,9 @@ async def ldrago_fast(
     
     Steps:
     1. Load local NCR data from CSV (instant)
-    2. Run simulation engines + LLM analysis in parallel
-    3. Return formatted response with quantitative + narrative
+    2. Run simulation engines FIRST (deterministic, fast)
+    3. Feed engine results + NCR data INTO the LLM for grounded narrative
+    4. Return formatted response with consistent quantitative + narrative
     """
     context = context or {}
     logs = []
@@ -485,19 +399,26 @@ async def ldrago_fast(
         ncr_summary = {}
         report_progress(f"⚠ NCR data unavailable: {str(e)[:50]}", 20)
     
-    # Step 2: Run simulation engines + LLM analysis IN PARALLEL
-    report_progress("🔷 Running simulation engines + multi-model analysis...", 30)
+    # Step 2: Run simulation engines FIRST (deterministic, fast, <1s)
+    report_progress("🔷 Running simulation engines...", 30)
+    try:
+        engine_result = await run_simulation_engines(query, ncr_summary)
+    except Exception as e:
+        engine_result = {"error": str(e), "impactCards": [], "recommendations": [], "domains": {}}
 
-    async def _run_engines():
-        try:
-            return await run_simulation_engines(query, ncr_summary)
-        except Exception as e:
-            return {"error": str(e), "impactCards": [], "recommendations": [], "domains": {}}
+    if engine_result.get("error"):
+        report_progress(f"⚠ Engines: {engine_result['error'][:60]}", 40)
+    else:
+        engines_run = list(engine_result.get("domains", {}).keys())
+        report_progress(f"✓ Simulation engines complete: {engines_run}", 45)
+
+    # Step 3: Run LLM + cross-validation in parallel, WITH engine results for grounding
+    report_progress("🧠 Running LLM analysis (grounded in engine data)...", 50)
 
     async def _run_llm():
-        """Primary analysis via Llama 3.3 70B."""
+        """Primary analysis via Llama 3.3 70B, grounded in engine results."""
         try:
-            return await llm_initial_analysis(query, context, ncr_data)
+            return await llm_initial_analysis(query, context, ncr_data, engine_results=engine_result)
         except Exception as e:
             return f"Analysis error: {str(e)[:100]}"
 
@@ -518,23 +439,17 @@ async def ldrago_fast(
         except Exception:
             return None
 
-    engine_result, llm_response, cross_val = await asyncio.gather(
-        _run_engines(), _run_llm(), _run_cross_validation()
+    llm_response, cross_val = await asyncio.gather(
+        _run_llm(), _run_cross_validation()
     )
 
     if isinstance(llm_response, str) and llm_response.startswith("Analysis error"):
         report_progress(f"⚠ LLM: {llm_response[:60]}", 80)
     else:
-        report_progress("✓ Llama 3.3 70B analysis complete", 70)
+        report_progress("✓ Llama 3.3 70B analysis complete (grounded)", 70)
 
     if cross_val:
         report_progress("✓ GPT-OSS-120B cross-validation complete", 75)
-
-    if engine_result.get("error"):
-        report_progress(f"⚠ Engines: {engine_result['error'][:60]}", 85)
-    else:
-        engines_run = list(engine_result.get("domains", {}).keys())
-        report_progress(f"✓ Simulation engines complete: {engines_run}", 85)
     
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()

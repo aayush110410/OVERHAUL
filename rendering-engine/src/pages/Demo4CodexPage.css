@@ -1,0 +1,359 @@
+.demo4-shell {
+  min-height: 100vh;
+  width: 100vw;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 14px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at top left, rgba(44, 111, 187, 0.22), transparent 26%),
+    radial-gradient(circle at 80% 20%, rgba(231, 160, 83, 0.14), transparent 28%),
+    linear-gradient(140deg, #071018 0%, #08141c 44%, #0f1820 100%);
+  color: #f4f5f7;
+}
+
+.demo4-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 8px 4px 0;
+}
+
+.demo4-header h1 {
+  font-size: clamp(1.5rem, 2vw, 2.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  max-width: 560px;
+}
+
+.demo4-eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+  margin-bottom: 8px;
+}
+
+.demo4-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.demo4-header-meta span,
+.demo4-chip,
+.demo4-primary,
+.demo4-mode-btn,
+.demo4-step {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+}
+
+.demo4-header-meta span,
+.demo4-chip,
+.demo4-step {
+  padding: 8px 12px;
+  font-size: 0.78rem;
+}
+
+.demo4-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) 1fr minmax(320px, 360px);
+  gap: 14px;
+  min-height: 0;
+}
+
+.demo4-column,
+.demo4-globe-stage {
+  min-height: 0;
+}
+
+.demo4-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.demo4-card {
+  background: rgba(8, 16, 24, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
+}
+
+.demo4-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 14px;
+}
+
+.demo4-globe-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(3, 10, 15, 0.92);
+  min-height: 72vh;
+}
+
+.demo4-globe-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.demo4-hud,
+.demo4-overview,
+.demo4-error {
+  position: absolute;
+  z-index: 10;
+}
+
+.demo4-hud {
+  top: 18px;
+  left: 18px;
+  min-width: 220px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(7, 16, 24, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.demo4-hud-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+}
+
+.demo4-hud-row span {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.demo4-overview {
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.demo4-overview span {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(7, 16, 24, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+}
+
+.demo4-error {
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(131, 22, 22, 0.92);
+  font-size: 0.82rem;
+}
+
+.demo4-layer-row,
+.demo4-slider,
+.demo4-trace {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.demo4-layer-name {
+  font-size: 0.94rem;
+  margin-bottom: 6px;
+}
+
+.demo4-layer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.56);
+  margin-bottom: 10px;
+}
+
+.demo4-layer-actions,
+.demo4-form-actions,
+.demo4-mode-grid,
+.demo4-timeline-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.demo4-chip,
+.demo4-mode-btn,
+.demo4-step,
+.demo4-primary {
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.demo4-chip:hover,
+.demo4-mode-btn:hover,
+.demo4-step:hover,
+.demo4-primary:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.demo4-chip.is-active,
+.demo4-mode-btn.is-active,
+.demo4-step.is-current,
+.demo4-primary {
+  background: rgba(83, 164, 255, 0.16);
+  border-color: rgba(83, 164, 255, 0.35);
+}
+
+.demo4-primary {
+  padding: 10px 14px;
+}
+
+.demo4-primary.ghost {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.demo4-form label,
+.demo4-slider {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.demo4-form span,
+.demo4-slider span {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.demo4-form input,
+.demo4-form textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  padding: 12px 14px;
+  font: inherit;
+}
+
+.demo4-form textarea {
+  resize: vertical;
+}
+
+.demo4-summary {
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.82);
+  margin-bottom: 16px;
+}
+
+.demo4-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.demo4-metric-card {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.demo4-metric-card span {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+
+.demo4-metric-card strong {
+  font-size: 1.1rem;
+}
+
+.demo4-list {
+  display: grid;
+  gap: 10px;
+}
+
+.demo4-list-item,
+.demo4-trace {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.demo4-trace-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.demo4-timeline {
+  margin-top: -4px;
+}
+
+.demo4-report-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.demo4-report-bar span {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.76rem;
+}
+
+.demo4-status-live {
+  color: #7ef0b4;
+}
+
+.demo4-status-offline {
+  color: #ff9d88;
+}
+
+.demo4-status-connecting {
+  color: #ffd37e;
+}
+
+@media (max-width: 1280px) {
+  .demo4-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .demo4-globe-stage {
+    order: -1;
+    min-height: 52vh;
+  }
+}

@@ -23,6 +23,7 @@ from typing import Any, Dict, Optional
 import httpx
 
 from llm.config import LLMConfig, gemini_enabled, load_llm_config, qwen_enabled
+from llm.usage_tracker import record_qwen_usage, record_gemini_usage, display_usage
 
 # ── Retry config ──
 _MAX_RETRIES = 2
@@ -98,6 +99,18 @@ async def qwen_chat_text(
             if not choices:
                 raise RuntimeError("OpenRouter returned no choices")
 
+            # Track token usage
+            usage = data.get("usage", {})
+            input_tokens = usage.get("prompt_tokens", 0)
+            output_tokens = usage.get("completion_tokens", 0)
+            record_qwen_usage(input_tokens, output_tokens)
+
+            # Display usage periodically (every 10 calls)
+            from llm.usage_tracker import get_usage_tracker
+            stats = get_usage_tracker().get_stats()
+            if stats.total_calls % 10 == 1:  # Show on 1st, 11th, 21st call, etc.
+                display_usage(1000000)  # Assuming 1M token limit
+
             content = choices[0].get("message", {}).get("content", "")
             # GPT-OSS-120B is a reasoning model: content may be null,
             # with the actual output in the "reasoning" field.
@@ -124,7 +137,8 @@ async def qwen_chat_text(
     raise last_error or RuntimeError("Qwen call failed after retries")
 
 
-# ═══════════════════════════════════════════════════════════════
+# ════════════════════════    exit
+# ═══════════════════════════════════════
 # GEMINI 3 PRO PREVIEW  (via Google AI API)
 # ═══════════════════════════════════════════════════════════════
 
@@ -137,7 +151,7 @@ async def gemini_chat_text(
     max_output_tokens: int = 12000,
     enable_search: bool = False,
 ) -> str:
-    """Call Gemini 3 Pro Preview via Google AI API and return plain text."""
+    """Call Gemini 3.1 Pro Preview via Google AI API and return plain text."""
     cfg = cfg or load_llm_config()
     if not cfg.gemini_api_key:
         raise RuntimeError("Gemini API key not set (GEMINI_API_KEY)")
@@ -184,6 +198,18 @@ async def gemini_chat_text(
             candidates = data.get("candidates", [])
             if not candidates:
                 raise RuntimeError("Gemini returned no candidates")
+
+            # Track token usage
+            usage = data.get("usageMetadata", {})
+            input_tokens = usage.get("promptTokenCount", 0)
+            output_tokens = usage.get("candidatesTokenCount", 0)
+            record_gemini_usage(input_tokens, output_tokens)
+
+            # Display usage periodically (every 10 calls)
+            from llm.usage_tracker import get_usage_tracker
+            stats = get_usage_tracker().get_stats()
+            if stats.total_calls % 10 == 1:  # Show on 1st, 11th, 21st call, etc.
+                display_usage(1000000)  # Assuming 1M token limit
 
             parts = candidates[0].get("content", {}).get("parts", [])
             text_parts = [p.get("text", "") for p in parts if "text" in p]

@@ -6,6 +6,9 @@ Models air quality, emissions, noise pollution, and green infrastructure
 impacts from urban interventions. Uses deterministic emission models
 calibrated for Indian cities (CPCB/SAFAR baselines).
 
+Baselines are loaded from trained model data (models/ncr_baselines.json)
+when available, falling back to hardcoded defaults.
+
 Supports:
   - AQI change from traffic interventions
   - PM2.5/PM10 dispersion (simplified Gaussian)
@@ -17,7 +20,9 @@ Supports:
 
 from __future__ import annotations
 
+import json
 import math
+import os
 from typing import Any, Dict, List
 
 from engines.base import (
@@ -27,13 +32,34 @@ from engines.base import (
     SimulationResult,
 )
 
-# ── Delhi NCR AQI Baselines (Winter 2025-26) ──
-_BASELINES = {
-    "delhi": {"pm25": 285, "pm10": 380, "aqi": 380, "no2": 65, "so2": 18, "o3": 35},
-    "noida": {"pm25": 220, "pm10": 310, "aqi": 320, "no2": 52, "so2": 14, "o3": 40},
-    "ghaziabad": {"pm25": 245, "pm10": 340, "aqi": 345, "no2": 58, "so2": 16, "o3": 38},
-    "gurugram": {"pm25": 200, "pm10": 290, "aqi": 300, "no2": 48, "so2": 12, "o3": 42},
-}
+# ── Load baselines from trained model data if available ──
+_BASELINES_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "models", "ncr_baselines.json")
+
+def _load_baselines() -> Dict[str, Dict[str, float]]:
+    """Load real baselines from trained data, with hardcoded fallback."""
+    defaults = {
+        "delhi": {"pm25": 164, "pm10": 347, "aqi": 249, "no2": 65, "so2": 18, "o3": 35},
+        "noida": {"pm25": 137, "pm10": 283, "aqi": 240, "no2": 52, "so2": 14, "o3": 40},
+        "ghaziabad": {"pm25": 159, "pm10": 332, "aqi": 260, "no2": 58, "so2": 16, "o3": 38},
+        "gurugram": {"pm25": 137, "pm10": 291, "aqi": 253, "no2": 48, "so2": 12, "o3": 42},
+    }
+    try:
+        baselines_path = os.path.normpath(_BASELINES_FILE)
+        if os.path.exists(baselines_path):
+            with open(baselines_path) as f:
+                trained = json.load(f)
+            for city_key, data in trained.items():
+                city_lower = city_key.lower()
+                if city_lower in defaults and "aqi" in data:
+                    aqi_data = data["aqi"]
+                    defaults[city_lower]["pm25"] = round(aqi_data.get("pm25_mean", defaults[city_lower]["pm25"]))
+                    defaults[city_lower]["pm10"] = round(aqi_data.get("pm10_mean", defaults[city_lower]["pm10"]))
+                    defaults[city_lower]["aqi"] = round(aqi_data.get("mean", defaults[city_lower]["aqi"]))
+    except Exception:
+        pass  # Use defaults
+    return defaults
+
+_BASELINES = _load_baselines()
 
 # Source contribution breakdown (Delhi winter, approximate)
 _SOURCE_CONTRIBUTIONS = {

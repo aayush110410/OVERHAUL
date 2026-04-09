@@ -34,6 +34,8 @@ if _ROOT not in sys.path:
 from engines import get_registry, Intervention, Scenario  # noqa: E402
 from engines.scenarios import list_templates, build_scenario_from_template  # noqa: E402
 from engines.geospatial import generate_geojson  # noqa: E402
+from engines.transport.prediction import run_prediction  # noqa: E402
+from engines.transport.network_model import NCRTrafficNetwork  # noqa: E402
 from data_integration.bridge import (  # noqa: E402
     ncr_data_to_engine_input,
     build_scenario_from_prompt,
@@ -187,6 +189,70 @@ async def run_template(template_id: str, data: Optional[Dict[str, Any]] = None):
         "description": scenario.description,
         "results": format_engine_results_for_chat(raw, scenario.name),
         "geojson": geojson,
+    }
+
+
+# ── Predictive simulation ────────────────────────────────────────
+
+class PredictRequest(BaseModel):
+    interventions: List[Dict[str, Any]] = Field(default_factory=list)
+    flow_ratio: float = Field(0.6, ge=0.1, le=1.0)
+    ev_share: float = Field(0.05, ge=0.0, le=1.0)
+    steps: Optional[List[Dict[str, Any]]] = None  # [{"label":"Current","years":0},...]
+
+
+@app.post("/simulate/predict")
+async def predict(req: PredictRequest):
+    """Run a predictive temporal simulation.
+
+    Returns time-stepped results (current → 1yr → 5yr) with
+    infrastructure interventions, traffic redistribution, and
+        pollution impact at each step.
+
+        Each timeline step also includes agent-based behavioral outputs,
+        showing how population segments respond differently to the same
+        infrastructure or policy changes.
+
+    Intervention types:
+      - new_road: {from, to, dist_km, free_speed, capacity, lanes}
+      - lane_expansion: {from, to, additional_lanes}
+      - flyover: {from, to, speed_gain_pct}
+      - road_closure: {from, to}
+      - congestion_pricing: {demand_reduction_pct}
+      - signal_optimization: {speed_gain_pct}
+            - remote_work_policy: {wfh_adoption_pct}
+            - vehicle_rationing: {}
+    """
+    result = run_prediction(
+        interventions=req.interventions,
+        flow_ratio=req.flow_ratio,
+        ev_share=req.ev_share,
+        steps=req.steps,
+    )
+    return result
+
+
+@app.get("/network/state")
+async def network_state():
+    """Get current network state as GeoJSON (no interventions)."""
+    network = NCRTrafficNetwork(flow_ratio=0.6)
+    network.assign_traffic(iterations=10)
+    return {
+        "metrics": network.get_summary_metrics(),
+        "bottlenecks": network.get_bottlenecks(),
+        "geojson": network.to_geojson(),
+    }
+
+
+@app.get("/network/nodes")
+async def network_nodes():
+    """List all network nodes."""
+    network = NCRTrafficNetwork()
+    return {
+        "nodes": [
+            {"id": nid, **attrs}
+            for nid, attrs in network.G.nodes(data=True)
+        ]
     }
 
 

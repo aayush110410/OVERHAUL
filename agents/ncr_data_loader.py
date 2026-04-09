@@ -222,26 +222,146 @@ def get_aqi_category(aqi: float) -> str:
         return "Severe"
 
 
+def get_model_predictions() -> Dict[str, Any]:
+    """Load trained ML models and produce predictions for each city at current conditions."""
+    try:
+        import joblib
+        models_dir = PROJECT_ROOT / "models"
+        
+        aqi_model_path = models_dir / "ncr_aqi_model.pkl"
+        speed_model_path = models_dir / "ncr_traffic_speed_model.pkl"
+        congestion_model_path = models_dir / "ncr_congestion_model.pkl"
+        metadata_path = models_dir / "feature_metadata.pkl"
+        baselines_path = models_dir / "ncr_baselines.json"
+        
+        if not aqi_model_path.exists():
+            return {}
+        
+        aqi_model = joblib.load(aqi_model_path)
+        speed_model = joblib.load(speed_model_path)
+        congestion_model = joblib.load(congestion_model_path)
+        metadata = joblib.load(metadata_path)
+        
+        import json
+        with open(baselines_path) as f:
+            baselines = json.load(f)
+        
+        now = datetime.now()
+        hour = now.hour
+        is_peak = 1 if (8 <= hour <= 10 or 17 <= hour <= 20) else 0
+        is_night = 1 if (hour >= 22 or hour <= 5) else 0
+        
+        city_encoder_aqi = metadata.get("aqi_city_encoder")
+        city_encoder_traffic = metadata.get("traffic_city_encoder")
+        
+        predictions = {}
+        
+        for city in ["Delhi", "Noida", "Ghaziabad", "Gurugram"]:
+            city_baselines = baselines.get(city, {})
+            aqi_bl = city_baselines.get("aqi", {})
+            traffic_bl = city_baselines.get("traffic", {})
+            
+            pred = {}
+            
+            # AQI prediction
+            if city_encoder_aqi and city in city_encoder_aqi.classes_:
+                city_code = city_encoder_aqi.transform([city])[0]
+                pm25_val = aqi_bl.get("pm25_mean", 150)
+                pm10_val = aqi_bl.get("pm10_mean", 300)
+                aqi_features = pd.DataFrame([{
+                    "pm25_real": pm25_val,
+                    "pm10_real": pm10_val,
+                    "month": now.month,
+                    "day_of_week": now.weekday(),
+                    "day_of_year": now.timetuple().tm_yday,
+                    "is_weekend": 1 if now.weekday() >= 5 else 0,
+                    "season_code": _get_season_code(now.month),
+                    "city_code": city_code,
+                    "festival_flag": 0,
+                }])
+                pred["predicted_aqi"] = round(float(aqi_model.predict(aqi_features)[0]), 1)
+            
+            # Traffic speed prediction
+            if city_encoder_traffic and city in city_encoder_traffic.classes_:
+                city_code_t = city_encoder_traffic.transform([city])[0]
+                vehicles = int(traffic_bl.get("total_vehicles_mean", 12000))
+                evs = int(vehicles * 0.03)
+                speed_features = pd.DataFrame([{
+                    "Hour": hour,
+                    "Vehicles_Total": vehicles,
+                    "is_peak": is_peak,
+                    "is_night": is_night,
+                    "city_code": city_code_t,
+                    "EVs": evs,
+                    "Weather_Flag": 0,
+                    "Festival_Flag": 0,
+                }])
+                pred["predicted_speed_kmph"] = round(float(speed_model.predict(speed_features)[0]), 1)
+                
+                # Congestion prediction
+                cong_features = speed_features[["Hour", "Vehicles_Total", "is_peak",
+                                                 "is_night", "city_code", "EVs", "Weather_Flag"]]
+                pred["predicted_congestion"] = {0: "Low", 1: "Moderate", 2: "High", 3: "Severe"}.get(
+                    int(congestion_model.predict(cong_features)[0]), "Unknown"
+                )
+            
+            if pred:
+                predictions[city] = pred
+        
+        return predictions
+    except Exception as e:
+        print(f"⚠ Model prediction warning: {e}")
+        return {}
+
+
+def _get_season_code(month: int) -> int:
+    """Map month to season code matching training data."""
+    if month in (12, 1, 2):
+        return 0  # Winter
+    elif month in (3, 4, 5):
+        return 1  # Summer
+    elif month in (6, 7, 8, 9):
+        return 2  # Monsoon
+    else:
+        return 3  # Post-Monsoon
+
+
 def format_ncr_data_for_prompt() -> str:
     """Format NCR data as a string for inclusion in AI prompts."""
     summary = get_ncr_summary()
     
-    lines = ["=== LIVE NCR DATA (from trained CSV) ===", ""]
+    lines = ["=== LIVE NCR DATA (from monitoring CSVs) ===", ""]
     
     # AQI section
-    lines.append("📊 AIR QUALITY (AQI):")
+    lines.append("AIR QUALITY (AQI) — measured values:")
     for city, data in summary.get("aqi", {}).items():
-        lines.append(f"  • {city}: PM2.5={data['pm25']} µg/m³, AQI={data['aqi']} ({data['category']})")
+        lines.append(f"  {city}: PM2.5={data['pm25']} µg/m³, AQI={data['aqi']} ({data['category']})")
     
     lines.append("")
     
     # Traffic section
-    lines.append("🚗 TRAFFIC:")
+    lines.append("TRAFFIC — measured values:")
     for city, data in summary.get("traffic", {}).items():
-        lines.append(f"  • {city}: Speed={data['avg_speed_kmph']} km/h, Congestion={data['congestion_pct']}%, EVs={data['ev_percentage']}%")
+        lines.append(f"  {city}: Speed={data['avg_speed_kmph']} km/h, Congestion={data['congestion_pct']}%, EVs={data['ev_percentage']}%")
+    
+    # ML model predictions
+    predictions = get_model_predictions()
+    if predictions:
+        lines.append("")
+        lines.append("ML MODEL PREDICTIONS (trained on 10,965 AQI + 2,688 traffic records):")
+        for city, pred in predictions.items():
+            parts = []
+            if "predicted_aqi" in pred:
+                parts.append(f"AQI={pred['predicted_aqi']}")
+            if "predicted_speed_kmph" in pred:
+                parts.append(f"Speed={pred['predicted_speed_kmph']} km/h")
+            if "predicted_congestion" in pred:
+                parts.append(f"Congestion={pred['predicted_congestion']}")
+            if parts:
+                lines.append(f"  {city}: {', '.join(parts)}")
     
     lines.append("")
-    lines.append(f"⏰ Data timestamp: {summary['timestamp']}")
+    lines.append(f"Data timestamp: {summary['timestamp']}")
     
     return "\n".join(lines)
 

@@ -241,121 +241,58 @@ function JackpotCounter({ value, suffix = '', prefix = '' }) {
 }
 
 // ============================================
-// CUSTOM CURSOR - SINGLE ELEMENT
+// CUSTOM CURSOR - DIRECT DOM (no rAF loop)
 // ============================================
 function CustomCursor() {
   const cursorRef = useRef(null)
-  const [isHovering, setIsHovering] = useState(false)
-  const mousePos = useRef({ x: 0, y: 0 })
-  const cursorPos = useRef({ x: 0, y: 0 })
-  const rafId = useRef(null)
 
   useEffect(() => {
-    const updateCursor = () => {
-      if (cursorRef.current) {
-        cursorRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0) translate(-50%, -50%)`
-      }
-      rafId.current = requestAnimationFrame(updateCursor)
-    }
-
-    rafId.current = requestAnimationFrame(updateCursor)
+    const el = cursorRef.current
+    if (!el) return
 
     const moveCursor = (e) => {
-      mousePos.current = { x: e.clientX, y: e.clientY }
+      el.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`
     }
 
-    const handleMouseOver = (e) => {
-      const target = e.target
-      if (target.tagName === 'A' || target.tagName === 'BUTTON' || 
-          target.closest('a') || target.closest('button')) {
-        setIsHovering(true)
+    const handleOver = (e) => {
+      if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' ||
+          e.target.closest('a') || e.target.closest('button')) {
+        el.classList.add('hovering')
       }
     }
 
-    const handleMouseOut = (e) => {
-      const target = e.target
-      if (target.tagName === 'A' || target.tagName === 'BUTTON' ||
-          target.closest('a') || target.closest('button')) {
-        setIsHovering(false)
+    const handleOut = (e) => {
+      if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' ||
+          e.target.closest('a') || e.target.closest('button')) {
+        el.classList.remove('hovering')
       }
     }
 
     document.addEventListener('mousemove', moveCursor, { passive: true })
-    document.addEventListener('mouseover', handleMouseOver, { passive: true })
-    document.addEventListener('mouseout', handleMouseOut, { passive: true })
+    document.addEventListener('mouseover', handleOver, { passive: true })
+    document.addEventListener('mouseout', handleOut, { passive: true })
 
     return () => {
-      if (rafId.current) cancelAnimationFrame(rafId.current)
       document.removeEventListener('mousemove', moveCursor)
-      document.removeEventListener('mouseover', handleMouseOver)
-      document.removeEventListener('mouseout', handleMouseOut)
+      document.removeEventListener('mouseover', handleOver)
+      document.removeEventListener('mouseout', handleOut)
     }
   }, [])
 
-  return <div ref={cursorRef} className={`cursor ${isHovering ? 'hovering' : ''}`} />
+  return <div ref={cursorRef} className="cursor" />
 }
 
 // ============================================
-// MOVING BACKGROUND LINES - LN STYLE
+// MOVING BACKGROUND - CSS-ONLY (GPU-accelerated)
 // ============================================
 function MovingBackground() {
   return (
     <div className="moving-bg">
-      <svg className="moving-bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="rgba(204, 255, 0, 0)" />
-            <stop offset="30%" stopColor="rgba(204, 255, 0, 0.15)" />
-            <stop offset="50%" stopColor="rgba(204, 255, 0, 0.25)" />
-            <stop offset="70%" stopColor="rgba(204, 255, 0, 0.15)" />
-            <stop offset="100%" stopColor="rgba(204, 255, 0, 0)" />
-          </linearGradient>
-        </defs>
-        {[...Array(10)].map((_, i) => (
-          <motion.path
-            key={i}
-            d={`M${-300 + i * 100},${80 + i * 80} Q${400 + i * 50},${250 + Math.sin(i) * 200} ${960},${540} T${2200 + i * 100},${950 + i * 20}`}
-            fill="none"
-            stroke="url(#lineGrad)"
-            strokeWidth={i % 3 === 0 ? "2" : "1"}
-            initial={{ pathLength: 0, opacity: 0 }}
-            animate={{ 
-              pathLength: [0, 1],
-              pathOffset: [0, 1],
-              opacity: [0, 0.8, 0]
-            }}
-            transition={{
-              duration: 12 + i * 2,
-              repeat: Infinity,
-              ease: "linear",
-              delay: i * 1
-            }}
-          />
-        ))}
-      </svg>
-      
-      {/* Organic blob shapes like LN site */}
+      {/* 3 lightweight CSS-animated shapes instead of 15 JS-animated ones */}
       <div className="organic-shapes">
-        {[...Array(5)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="organic-shape"
-            style={{
-              left: `${10 + i * 20}%`,
-              top: `${15 + (i % 3) * 30}%`,
-            }}
-            animate={{
-              x: [0, 40, -30, 0],
-              y: [0, -50, 30, 0],
-              scale: [1, 1.1, 0.95, 1],
-            }}
-            transition={{
-              duration: 25 + i * 5,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-        ))}
+        <div className="organic-shape organic-shape-1" />
+        <div className="organic-shape organic-shape-2" />
+        <div className="organic-shape organic-shape-3" />
       </div>
     </div>
   )
@@ -777,14 +714,17 @@ function App() {
               <span className="highlight-lime">Simulating tomorrow, today.</span>
             </motion.p>
 
-            <motion.div 
+            <motion.div
               className="hero-ctas"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
             >
-              <MagneticButton className="btn-brutal" to="/demo">
+              <MagneticButton className="btn-brutal" to="/demo2">
                 LAUNCH SIMULATOR
+              </MagneticButton>
+              <MagneticButton className="btn-outline" to="/flyover" state={{ skipLoader: false }}>
+                🏗️ 3D FLYOVER
               </MagneticButton>
               <MagneticButton className="btn-outline" to="/validation">
                 VALIDATION
@@ -1178,12 +1118,12 @@ function App() {
                     initial={{ 
                       opacity: 0, 
                       y: 60,
-                      filter: 'blur(10px)'
+                      scale: 0.95
                     }}
-                    whileInView={{ 
-                      opacity: 1, 
+                    whileInView={{
+                      opacity: 1,
                       y: 0,
-                      filter: 'blur(0px)'
+                      scale: 1
                     }}
                     viewport={{ once: true, margin: "-100px" }}
                     transition={{ 
@@ -1206,12 +1146,12 @@ function App() {
                     initial={{ 
                       opacity: 0, 
                       y: 60,
-                      filter: 'blur(10px)'
+                      scale: 0.95
                     }}
-                    whileInView={{ 
-                      opacity: 1, 
+                    whileInView={{
+                      opacity: 1,
                       y: 0,
-                      filter: 'blur(0px)'
+                      scale: 1
                     }}
                     viewport={{ once: true, margin: "-100px" }}
                     transition={{ 

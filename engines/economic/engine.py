@@ -175,7 +175,7 @@ class EconomicEngine(SimulationEngine):
         )
         npv_costs = infra_cost_cr  # Upfront cost
 
-        bcr = npv_benefits / max(npv_costs, 1) if npv_costs > 0 else float('inf')
+        bcr = npv_benefits / max(npv_costs, 1) if npv_costs > 0 else 999.99
 
         metrics = {
             "annual_time_value_saved_cr": round(annual_time_value_cr, 1),

@@ -1,822 +1,988 @@
+import React, { useState, useRef, useEffect } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import './styles.css';
+import { addFlyoverLayer, removeFlyoverLayer } from './FlyoverLayer';
+import ImagenFlyoverVisuals from './ImagenFlyoverVisuals';
+import Flyover3DViewer from './Flyover3DViewer';
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
-import './App.css'
-// Import the advanced 3D flyover agent
-import { addFlyoverLayer, removeFlyoverLayer } from './FlyoverLayer'
-import { apiFetchJson, API_BASE } from './api/config'
-import { cartoLightOsmStyle } from './maps/styles/cartoLightOsmStyle'
-
-const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN || '').trim()
-mapboxgl.accessToken = MAPBOX_TOKEN
-
-// ============================================
-// OV LOADER (Same style as Contact page - no bar)
-// Zooms IN to transition - FAST VERSION
-// ============================================
-function OVLoader({ onComplete }) {
-  const [phase, setPhase] = useState('zoomOut') // zoomOut -> hold -> zoomIn -> done
-  
-  useEffect(() => {
-    // Phase 1: Zoom out from large scale
-    const holdTimer = setTimeout(() => {
-      setPhase('hold')
-    }, 400)
-    
-    return () => clearTimeout(holdTimer)
-  }, [])
-  
-  useEffect(() => {
-    if (phase === 'hold') {
-      // Phase 2: Brief hold at normal size
-      const zoomInTimer = setTimeout(() => {
-        setPhase('zoomIn')
-      }, 250)
-      return () => clearTimeout(zoomInTimer)
-    }
-  }, [phase])
-  
-  useEffect(() => {
-    if (phase === 'zoomIn') {
-      // Phase 3: Zoom in and fade out
-      const completeTimer = setTimeout(() => {
-        onComplete()
-      }, 500)
-      return () => clearTimeout(completeTimer)
-    }
-  }, [phase, onComplete])
-
-  return (
-    <motion.div 
-      className="loader-ln"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: phase === 'zoomIn' ? 0 : 1 }}
-      transition={{ 
-        duration: phase === 'zoomIn' ? 0.3 : 0.2, 
-        ease: [0.4, 0, 0.2, 1],
-        delay: phase === 'zoomIn' ? 0.25 : 0
-      }}
-    >
-      <div className="loader-ln-content">
-        <motion.div 
-          className="loader-ln-logo"
-          initial={{ scale: 50, opacity: 0 }}
-          animate={{
-            scale: phase === 'zoomOut' ? 1 : phase === 'hold' ? 1 : 50,
-            opacity: 1
-          }}
-          transition={{
-            duration: phase === 'zoomOut' ? 0.4 : phase === 'zoomIn' ? 0.5 : 0.1,
-            ease: [0.4, 0, 0.2, 1]
-          }}
-        >
-          <motion.span 
-            className="loader-ln-text-o"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2, delay: 0.15, ease: [0.4, 0, 0.2, 1] }}
-          >
-            O
-          </motion.span>
-          <motion.span 
-            className="loader-ln-text-v"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2, delay: 0.2, ease: [0.4, 0, 0.2, 1] }}
-          >
-            V
-          </motion.span>
-        </motion.div>
-      </div>
-    </motion.div>
-  )
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+if (MAPBOX_TOKEN) {
+  mapboxgl.accessToken = MAPBOX_TOKEN;
 }
 
-// ============================================
-// EXIT LOADER - Zoom Out then Zoom In
-// ============================================
-function ExitLoader({ onComplete }) {
-  const [phase, setPhase] = useState('zoomOut')
-  
-  useEffect(() => {
-    const holdTimer = setTimeout(() => {
-      setPhase('hold')
-    }, 400)
-    return () => clearTimeout(holdTimer)
-  }, [])
-  
-  useEffect(() => {
-    if (phase === 'hold') {
-      const zoomInTimer = setTimeout(() => {
-        setPhase('zoomIn')
-      }, 200)
-      return () => clearTimeout(zoomInTimer)
-    }
-  }, [phase])
-  
-  useEffect(() => {
-    if (phase === 'zoomIn') {
-      const completeTimer = setTimeout(() => {
-        onComplete()
-      }, 500)
-      return () => clearTimeout(completeTimer)
-    }
-  }, [phase, onComplete])
-
-  return (
-    <motion.div 
-      className="loader-ln"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: phase === 'zoomIn' ? 0 : 1 }}
-      transition={{ 
-        duration: phase === 'zoomIn' ? 0.3 : 0.2, 
-        ease: [0.76, 0, 0.24, 1],
-        delay: phase === 'zoomIn' ? 0.25 : 0
-      }}
-    >
-      <div className="loader-ln-content">
-        <motion.div 
-          className="loader-ln-logo"
-          initial={{ scale: 50, opacity: 0 }}
-          animate={{
-            scale: phase === 'zoomOut' ? 1 : phase === 'hold' ? 1 : 50,
-            opacity: 1
-          }}
-          transition={{
-            duration: phase === 'zoomOut' ? 0.4 : phase === 'zoomIn' ? 0.5 : 0.1,
-            ease: [0.76, 0, 0.24, 1]
-          }}
-        >
-          <motion.span className="loader-ln-text-o" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: 0.15 }}>O</motion.span>
-          <motion.span className="loader-ln-text-v" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15, delay: 0.2 }}>V</motion.span>
-        </motion.div>
-      </div>
-    </motion.div>
-  )
-}
-
-// Custom Cursor
-function CustomCursor() {
-  const cursorRef = useRef(null)
-  const [isHovering, setIsHovering] = useState(false)
-  const mousePos = useRef({ x: 0, y: 0 })
-  const rafId = useRef(null)
-
-  useEffect(() => {
-    const updateCursor = () => {
-      if (cursorRef.current) {
-        cursorRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0) translate(-50%, -50%)`
-      }
-      rafId.current = requestAnimationFrame(updateCursor)
-    }
-    rafId.current = requestAnimationFrame(updateCursor)
-
-    const moveCursor = (e) => { mousePos.current = { x: e.clientX, y: e.clientY } }
-    const handleMouseOver = (e) => {
-      if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) {
-        setIsHovering(true)
-      }
-    }
-    const handleMouseOut = (e) => {
-      if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) {
-        setIsHovering(false)
-      }
-    }
-
-    document.addEventListener('mousemove', moveCursor, { passive: true })
-    document.addEventListener('mouseover', handleMouseOver, { passive: true })
-    document.addEventListener('mouseout', handleMouseOut, { passive: true })
-
-    return () => {
-      if (rafId.current) cancelAnimationFrame(rafId.current)
-      document.removeEventListener('mousemove', moveCursor)
-      document.removeEventListener('mouseover', handleMouseOver)
-      document.removeEventListener('mouseout', handleMouseOut)
-    }
-  }, [])
-
-  return <div ref={cursorRef} className={`cursor ${isHovering ? 'hovering' : ''}`} />
-}
-
-// Geocode place name to coordinates (with India bias)
-async function geocode(place) {
-  const raw = (place || '').trim()
-  if (!raw) throw new Error('Location is required')
-
-  // Prefer Nominatim via backend (no client-side key)
-  try {
-    const q = raw.toLowerCase().includes('india') ? raw : `${raw}, India`
-    const data = await apiFetchJson(`/geocode?query=${encodeURIComponent(q)}&limit=1`)
-    const results = Array.isArray(data?.results) ? data.results : []
-    const r = results[0]
-    if (r?.lat != null && r?.lon != null) {
-      return {
-        coords: [parseFloat(r.lon), parseFloat(r.lat)],
-        name: r.display_name || raw
-      }
-    }
-  } catch {
-    // fall back
-  }
-
-  if (!MAPBOX_TOKEN) {
-    throw new Error(`Geocoding unavailable. Configure VITE_MAPBOX_TOKEN or backend geocoding at ${API_BASE}.`)
-  }
-
-  const searchQuery = raw.toLowerCase().includes('india') ? raw : `${raw}, India`
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${MAPBOX_TOKEN}&limit=1&types=poi,address,place,locality,neighborhood`
-  const res = await fetch(url)
-  const data = await res.json()
-  if (data.features && data.features.length > 0) {
-    return {
-      coords: data.features[0].center,
-      name: data.features[0].place_name
-    }
-  }
-  throw new Error(`Could not find location: ${raw}`)
-}
-
-// Reverse geocode coords to place name
-async function reverseGeocode(lng, lat) {
-  // Prefer Nominatim via backend
-  try {
-    const data = await apiFetchJson(`/reverse-geocode?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`)
-    if (data?.display_name) return data.display_name
-  } catch {
-    // fall back
-  }
-
-  if (MAPBOX_TOKEN) {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&limit=1`
-    const res = await fetch(url)
-    const data = await res.json()
-    if (data.features && data.features.length > 0) {
-      return data.features[0].place_name
-    }
-  }
-  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
-}
-
-// Get driving route
-async function getRoute(start, end) {
-  const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${MAPBOX_TOKEN}`
-  const res = await fetch(url)
-  const data = await res.json()
-  if (data.routes && data.routes.length > 0) {
-    return {
-      geometry: data.routes[0].geometry,
-      distance: data.routes[0].distance,
-      duration: data.routes[0].duration
-    }
-  }
-  throw new Error('Could not find route')
-}
-
-// Generate flyover path points
-function generateFlyoverPath(routeCoords, numPoints = 50) {
-  const points = []
-  const totalLength = routeCoords.length
-  for (let i = 0; i < numPoints; i++) {
-    const t = i / (numPoints - 1)
-    const idx = t * (totalLength - 1)
-    const lowIdx = Math.floor(idx)
-    const highIdx = Math.min(lowIdx + 1, totalLength - 1)
-    const frac = idx - lowIdx
-    const lng = routeCoords[lowIdx][0] + frac * (routeCoords[highIdx][0] - routeCoords[lowIdx][0])
-    const lat = routeCoords[lowIdx][1] + frac * (routeCoords[highIdx][1] - routeCoords[lowIdx][1])
-    points.push([lng, lat])
-  }
-  return points
-}
-
-// Generate corridor polygon for 3D extrusion
-function generateCorridorPolygon(path, widthMeters = 20) {
-  const coords = []
-  const widthDeg = widthMeters / 111000
-  for (let i = 0; i < path.length; i++) {
-    const [lng, lat] = path[i]
-    let angle = 0
-    if (i < path.length - 1) {
-      angle = Math.atan2(path[i + 1][1] - lat, path[i + 1][0] - lng)
-    } else if (i > 0) {
-      angle = Math.atan2(lat - path[i - 1][1], lng - path[i - 1][0])
-    }
-    const perpAngle = angle + Math.PI / 2
-    coords.push([lng + Math.cos(perpAngle) * widthDeg, lat + Math.sin(perpAngle) * widthDeg])
-  }
-  for (let i = path.length - 1; i >= 0; i--) {
-    const [lng, lat] = path[i]
-    let angle = 0
-    if (i < path.length - 1) {
-      angle = Math.atan2(path[i + 1][1] - lat, path[i + 1][0] - lng)
-    } else if (i > 0) {
-      angle = Math.atan2(lat - path[i - 1][1], lng - path[i - 1][0])
-    }
-    const perpAngle = angle - Math.PI / 2
-    coords.push([lng + Math.cos(perpAngle) * widthDeg, lat + Math.sin(perpAngle) * widthDeg])
-  }
-  coords.push(coords[0])
-  return coords
-}
-
-// Generate pillar positions
-function generatePillars(path, spacing = 8) {
-  const pillars = []
-  for (let i = 0; i < path.length; i += spacing) {
-    pillars.push({
-      type: 'Feature',
-      properties: { height: 12 },
-      geometry: { type: 'Point', coordinates: path[i] }
-    })
-  }
-  return pillars
-}
+const API_BASE = 'http://localhost:8001';
 
 export default function FlyoverSim() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const skipLoader = location.state?.skipLoader || false
+  const mapContainer = useRef(null);
+  const map = useRef(null);
+  const originMarker = useRef(null);
+  const destMarker = useRef(null);
+
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [originCoords, setOriginCoords] = useState(null);
+  const [destCoords, setDestCoords] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [mapStatus, setMapStatus] = useState('INITIALIZING');
+  const [pinMode, setPinMode] = useState(null);
   
-  const [pageLoading, setPageLoading] = useState(!skipLoader)
-  const [exiting, setExiting] = useState(false)
-  const [pendingNavigation, setPendingNavigation] = useState(null)
+  // 3D Viewer state
+  const [show3DViewer, setShow3DViewer] = useState(false);
+  const [flyoverData, setFlyoverData] = useState(null);
 
-  const mapContainer = useRef(null)
-  const mapRef = useRef(null)
-  const markersRef = useRef([])
-  const userMarkerRef = useRef(null)
-  
-  const [mapLoaded, setMapLoaded] = useState(false)
-  const [fromLocation, setFromLocation] = useState('')
-  const [toLocation, setToLocation] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [isLocating, setIsLocating] = useState(false)
-  const [userCoords, setUserCoords] = useState(null)
-  const [stats, setStats] = useState(null)
-  const [analysisLog, setAnalysisLog] = useState([])
+  const addLog = (msg, type = 'info') => {
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+    setLogs(prev => [...prev, { time, msg, type }]);
+  };
 
-  const addLog = useCallback((message, type = 'info') => {
-    setAnalysisLog(prev => [...prev, { message, type, time: new Date().toLocaleTimeString() }])
-  }, [])
+  const createMarkerElement = (type) => {
+    const el = document.createElement('div');
+    el.className = 'pin-marker ' + type + '-marker';
+    el.innerHTML = '<div class="pin-icon"><svg width="30" height="40" viewBox="0 0 30 40"><path d="M15 0C6.716 0 0 6.716 0 15c0 8.284 15 25 15 25s15-16.716 15-25C30 6.716 23.284 0 15 0z" fill="' + (type === 'origin' ? '#00ff88' : '#ff4d00') + '"/><circle cx="15" cy="15" r="6" fill="white"/></svg></div><div class="pin-label">' + (type === 'origin' ? 'START' : 'END') + '</div>';
+    return el;
+  };
 
-  // Handle browser back/forward buttons
+  const updateOriginMarker = (coords) => {
+    if (originMarker.current) originMarker.current.remove();
+    const el = createMarkerElement('origin');
+    originMarker.current = new mapboxgl.Marker({ element: el, draggable: true })
+      .setLngLat(coords)
+      .addTo(map.current);
+    originMarker.current.on('dragend', () => {
+      const lngLat = originMarker.current.getLngLat();
+      setOriginCoords([lngLat.lng, lngLat.lat]);
+      setOrigin(lngLat.lat.toFixed(6) + ', ' + lngLat.lng.toFixed(6));
+      addLog('Origin moved to: ' + lngLat.lat.toFixed(4) + ', ' + lngLat.lng.toFixed(4), 'info');
+    });
+  };
+
+  const updateDestMarker = (coords) => {
+    if (destMarker.current) destMarker.current.remove();
+    const el = createMarkerElement('destination');
+    destMarker.current = new mapboxgl.Marker({ element: el, draggable: true })
+      .setLngLat(coords)
+      .addTo(map.current);
+    destMarker.current.on('dragend', () => {
+      const lngLat = destMarker.current.getLngLat();
+      setDestCoords([lngLat.lng, lngLat.lat]);
+      setDestination(lngLat.lat.toFixed(6) + ', ' + lngLat.lng.toFixed(6));
+      addLog('Destination moved to: ' + lngLat.lat.toFixed(4) + ', ' + lngLat.lng.toFixed(4), 'info');
+    });
+  };
+
   useEffect(() => {
-    window.history.pushState({ skipLoader: true }, '', window.location.href)
-    const handlePopState = () => {
-      setExiting(true)
-      setPendingNavigation('/demo')
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
+    if (map.current) return;
+    if (!mapContainer.current) return;
 
-  useEffect(() => {
-    document.title = 'OVERHAUL | 3D Flyover'
-  }, [])
+    try {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [77.2090, 28.6139],
+        zoom: 12,
+        pitch: 60,
+        bearing: -17.6
+      });
 
-  const handleBackDemo = (e) => {
-    e.preventDefault()
-    setExiting(true)
-    setPendingNavigation('/demo')
-  }
+      map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
 
-  const handleBackHome = (e) => {
-    e.preventDefault()
-    setExiting(true)
-    setPendingNavigation('/')
-  }
-
-  const handleExitComplete = () => {
-    navigate(pendingNavigation || '/demo', { state: { skipLoader: true } })
-  }
-
-  if (!MAPBOX_TOKEN) {
-    return (
-      <>
-        <CustomCursor />
-        <AnimatePresence mode="wait">
-          {pageLoading && <OVLoader key="entry-loader" onComplete={() => setPageLoading(false)} />}
-        </AnimatePresence>
-        <AnimatePresence mode="wait">
-          {exiting && <ExitLoader key="exit-loader" onComplete={handleExitComplete} />}
-        </AnimatePresence>
-        {!pageLoading && !exiting && (
-          <div className="contact-page">
-            <div className="contact-nav">
-              <a href="/" onClick={handleBackHome} className="nav-logo">OVERHAUL™</a>
-              <a href="/demo" onClick={handleBackDemo} className="back-btn">← BACK</a>
-            </div>
-            <div className="contact-content">
-              <div className="contact-header">
-                <span className="contact-label">CONFIG REQUIRED</span>
-                <h1 className="contact-title">Missing Mapbox Token</h1>
-                <p className="contact-subtitle">
-                  Set <span style={{ color: 'var(--orange)' }}>VITE_MAPBOX_TOKEN</span> in your <code>.env</code> to run the flyover map.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </>
-    )
-  }
-
-  // Initialize map
-  useEffect(() => {
-    if (pageLoading || mapRef.current || !mapContainer.current) return
-
-    let cancelled = false
-    let didFallback = false
-
-    const attachOnLoad = () => {
-      if (!mapRef.current) return
-
-      mapRef.current.on('load', () => {
-        if (!mapRef.current) return
-        setMapLoaded(true)
-
-        // Add empty sources for visualization
-        mapRef.current.addSource('flyover-corridor', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        })
-        mapRef.current.addSource('ground-route', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        })
-        mapRef.current.addSource('flyover-pillars', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        })
-
-        // Ground route (dashed)
-        mapRef.current.addLayer({
-          id: 'ground-route-line',
-          type: 'line',
-          source: 'ground-route',
-          paint: {
-            'line-color': '#ff4d00',
-            'line-width': 4,
-            'line-opacity': 0.7,
-            'line-dasharray': [2, 2]
-          }
-        })
-
-        // Flyover corridor (3D)
-        mapRef.current.addLayer({
-          id: 'flyover-corridor-fill',
+      map.current.on('load', () => {
+        setMapStatus('READY');
+        addLog('Map ready - Use pin buttons to set points', 'system');
+        map.current.addLayer({
+          id: '3d-buildings',
+          source: 'composite',
+          'source-layer': 'building',
           type: 'fill-extrusion',
-          source: 'flyover-corridor',
+          minzoom: 14,
           paint: {
-            'fill-extrusion-color': '#CCFF00',
-            'fill-extrusion-height': 15,
-            'fill-extrusion-base': 10,
-            'fill-extrusion-opacity': 0.85
+            'fill-extrusion-color': '#aaaaaa',
+            'fill-extrusion-height': ['get', 'height'],
+            'fill-extrusion-base': ['get', 'min_height'],
+            'fill-extrusion-opacity': 0.7
           }
-        })
+        });
+      });
 
-        // Pillars
-        mapRef.current.addLayer({
-          id: 'flyover-pillars-circles',
-          type: 'circle',
-          source: 'flyover-pillars',
-          paint: {
-            'circle-radius': 5,
-            'circle-color': '#ff4d00',
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#CCFF00'
-          }
-        })
+      map.current.on('error', (e) => {
+        console.error('Map error:', e);
+        setMapStatus('ERROR');
+      });
 
-        addLog('L-DRAGO: System initialized', 'system')
-        addLog('Map ready. Enter locations to simulate flyover.', 'info')
-      })
+    } catch (err) {
+      console.error('Failed to create map:', err);
+      setMapStatus('ERROR');
     }
-
-    const rebuildWithFallback = () => {
-      if (didFallback || cancelled || !mapContainer.current) return
-      didFallback = true
-
-      try {
-        mapRef.current?.remove()
-      } catch {
-        // ignore
-      }
-      mapRef.current = null
-
-      mapRef.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: cartoLightOsmStyle,
-        center: [77.38, 28.62],
-        zoom: 12,
-        pitch: 45,
-        bearing: -10
-      })
-      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
-      attachOnLoad()
-    }
-
-    ;(async () => {
-      // Preflight Mapbox token: if unauthorized/unreachable, fall back to Carto Light OSM
-      let style = 'mapbox://styles/mapbox/light-v11'
-      try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 3500)
-        const resp = await fetch(
-          `https://api.mapbox.com/styles/v1/mapbox/light-v11?access_token=${encodeURIComponent(MAPBOX_TOKEN)}`,
-          { signal: controller.signal }
-        )
-        clearTimeout(timeout)
-        if (!resp.ok) style = cartoLightOsmStyle
-      } catch {
-        style = cartoLightOsmStyle
-      }
-
-      if (cancelled || mapRef.current || !mapContainer.current) return
-
-      mapRef.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style,
-        center: [77.38, 28.62],
-        zoom: 12,
-        pitch: 45,
-        bearing: -10
-      })
-
-      // If the container was animated/hidden during mount, Mapbox can render a blank canvas.
-      // A resize on the next tick reliably fixes this.
-      setTimeout(() => mapRef.current?.resize(), 0)
-      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
-
-      // If Mapbox style fails at runtime (e.g. 401), rebuild once with fallback.
-      mapRef.current.on('error', rebuildWithFallback)
-
-      attachOnLoad()
-    })()
 
     return () => {
-      cancelled = true
-      try {
-        mapRef.current?.remove()
-      } catch {
-        // ignore
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
       }
-      mapRef.current = null
-    }
-  }, [addLog])
+    };
+  }, []);
 
-  // Get user's current location
-  const getUserLocation = async () => {
+  useEffect(() => {
+    if (!map.current) return;
+    
+    const handleClick = (e) => {
+      const { lng, lat } = e.lngLat;
+      if (pinMode === 'origin') {
+        setOriginCoords([lng, lat]);
+        setOrigin(lat.toFixed(6) + ', ' + lng.toFixed(6));
+        updateOriginMarker([lng, lat]);
+        addLog('Origin set: ' + lat.toFixed(4) + ', ' + lng.toFixed(4), 'success');
+        setPinMode(null);
+      } else if (pinMode === 'destination') {
+        setDestCoords([lng, lat]);
+        setDestination(lat.toFixed(6) + ', ' + lng.toFixed(6));
+        updateDestMarker([lng, lat]);
+        addLog('Destination set: ' + lat.toFixed(4) + ', ' + lng.toFixed(4), 'success');
+        setPinMode(null);
+      }
+    };
+
+    map.current.on('click', handleClick);
+    return () => {
+      if (map.current) map.current.off('click', handleClick);
+    };
+  }, [pinMode]);
+
+  const getUserLocation = () => {
     if (!navigator.geolocation) {
-      addLog('Geolocation not supported', 'error')
-      return
+      addLog('Geolocation not supported', 'error');
+      return;
+    }
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        map.current.flyTo({ center: [longitude, latitude], zoom: 15, duration: 1500 });
+        setOriginCoords([longitude, latitude]);
+        setOrigin(latitude.toFixed(6) + ', ' + longitude.toFixed(6));
+        updateOriginMarker([longitude, latitude]);
+        addLog('Location found: ' + latitude.toFixed(4) + ', ' + longitude.toFixed(4), 'success');
+        setGettingLocation(false);
+      },
+      () => {
+        addLog('Location access denied', 'error');
+        setGettingLocation(false);
+      }
+    );
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    try {
+      const response = await fetch(
+        'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(searchQuery) + '.json?access_token=' + mapboxgl.accessToken + '&country=IN'
+      );
+      const data = await response.json();
+      if (data.features && data.features.length > 0) {
+        const [lng, lat] = data.features[0].center;
+        map.current.flyTo({ center: [lng, lat], zoom: 15, duration: 1500 });
+        addLog('Found: ' + data.features[0].place_name, 'success');
+      } else {
+        addLog('Location not found', 'error');
+      }
+    } catch (error) {
+      addLog('Search failed', 'error');
+    }
+  };
+
+  const clearMap = () => {
+    removeFlyoverLayer(map.current);
+    const layers = ['flyover-corridor', 'flyover-path', 'pillars', 'pillar-labels', 'route-line', 'ai-pillars', 'existing-bridges', 'junctions', 'railways', 'street-route'];
+    layers.forEach(id => { if (map.current.getLayer(id)) map.current.removeLayer(id); });
+    const sources = ['flyover-corridor', 'flyover-path', 'flyover-route', 'pillars', 'route', 'ai-pillars', 'existing-bridges', 'junctions', 'railways', 'street-route'];
+    sources.forEach(id => { if (map.current.getSource(id)) map.current.removeSource(id); });
+  };
+
+  const geocodeLocation = async (location) => {
+    const coordMatch = location.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+    if (coordMatch) {
+      return [parseFloat(coordMatch[2]), parseFloat(coordMatch[1])];
+    }
+    const response = await fetch(
+      'https://api.mapbox.com/geocoding/v5/mapbox.places/' + encodeURIComponent(location) + '.json?access_token=' + mapboxgl.accessToken + '&country=IN'
+    );
+    const data = await response.json();
+    if (data.features && data.features.length > 0) {
+      return data.features[0].center;
+    }
+    throw new Error('Location not found: ' + location);
+  };
+
+  // Generate a smooth bezier curve for the flyover path
+  const generateFlyoverPath = (start, end, numPoints = 50) => {
+    const path = [];
+    
+    // Calculate direct distance
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Create control points for a smooth S-curve (like real flyovers)
+    // Flyovers often have gentle curves for vehicle safety
+    const midX = (start[0] + end[0]) / 2;
+    const midY = (start[1] + end[1]) / 2;
+    
+    // Perpendicular offset for curve (varies based on distance)
+    const perpX = -dy * 0.15; // 15% offset perpendicular to direct line
+    const perpY = dx * 0.15;
+    
+    // Control points for cubic bezier
+    const cp1 = [start[0] + dx * 0.25 + perpX * 0.5, start[1] + dy * 0.25 + perpY * 0.5];
+    const cp2 = [start[0] + dx * 0.75 - perpX * 0.5, start[1] + dy * 0.75 - perpY * 0.5];
+    
+    // Generate bezier curve points
+    for (let i = 0; i <= numPoints; i++) {
+      const t = i / numPoints;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const mt3 = mt2 * mt;
+      
+      // Cubic bezier formula
+      const x = mt3 * start[0] + 3 * mt2 * t * cp1[0] + 3 * mt * t2 * cp2[0] + t3 * end[0];
+      const y = mt3 * start[1] + 3 * mt2 * t * cp1[1] + 3 * mt * t2 * cp2[1] + t3 * end[1];
+      
+      path.push([x, y]);
+    }
+    
+    return path;
+  };
+
+  // Calculate haversine distance in km
+  const haversineDistance = (coord1, coord2) => {
+    const R = 6371; // Earth radius in km
+    const dLat = (coord2[1] - coord1[1]) * Math.PI / 180;
+    const dLon = (coord2[0] - coord1[0]) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(coord1[1] * Math.PI / 180) * Math.cos(coord2[1] * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Build an obstacle-aware flyover path that bends around dense obstacles (buildings, junctions, rail)
+  const buildObstacleAwarePath = (start, end, infrastructure) => {
+    if (!infrastructure) return generateFlyoverPath(start, end, 70);
+
+    // Collect obstacle points with radii (meters)
+    const obstacles = [];
+    (infrastructure.buildings || []).forEach(function(b) {
+      if (b.center) obstacles.push({ coords: b.center, radius: 28 });
+    });
+    (infrastructure.junctions || []).forEach(function(j) {
+      if (j.coords) obstacles.push({ coords: j.coords, radius: 25 });
+    });
+    (infrastructure.railways || []).forEach(function(r) {
+      if (Array.isArray(r.coords) && r.coords.length > 1 && Array.isArray(r.coords[0])) {
+        r.coords.forEach(function(rc) { obstacles.push({ coords: rc, radius: 30 }); });
+      } else if (r.coords) {
+        obstacles.push({ coords: r.coords, radius: 30 });
+      }
+    });
+
+    if (obstacles.length === 0) return generateFlyoverPath(start, end, 70);
+
+    // Bounding box for grid search
+    const allLons = [start[0], end[0]].concat(obstacles.map(o => o.coords[0]));
+    const allLats = [start[1], end[1]].concat(obstacles.map(o => o.coords[1]));
+    const minLon = Math.min.apply(null, allLons) - 0.0015;
+    const maxLon = Math.max.apply(null, allLons) + 0.0015;
+    const minLat = Math.min.apply(null, allLats) - 0.0015;
+    const maxLat = Math.max.apply(null, allLats) + 0.0015;
+
+    const gridN = 42; // resolution of the grid
+    const dLon = (maxLon - minLon) / gridN;
+    const dLat = (maxLat - minLat) / gridN;
+
+    const toCell = (pt) => {
+      return [
+        Math.max(0, Math.min(gridN - 1, Math.round((pt[0] - minLon) / dLon))),
+        Math.max(0, Math.min(gridN - 1, Math.round((pt[1] - minLat) / dLat)))
+      ];
+    };
+
+    const toCoord = (cell) => {
+      return [
+        minLon + cell[0] * dLon,
+        minLat + cell[1] * dLat
+      ];
+    };
+
+    const startCell = toCell(start);
+    const endCell = toCell(end);
+
+    const obstacleCost = (lon, lat) => {
+      let cost = 1;
+      for (const obs of obstacles) {
+        const distM = haversineDistance([lon, lat], obs.coords) * 1000;
+        if (distM < obs.radius) return 1e6; // block
+        if (distM < obs.radius + 40) {
+          cost += (obs.radius + 40 - distM) * 0.4; // soft avoidance
+        }
+      }
+      return cost;
+    };
+
+    // A* on small grid
+    const key = (x, y) => x + ',' + y;
+    const open = new Map();
+    const gScore = new Map();
+    const fScore = new Map();
+    const cameFrom = new Map();
+
+    const h = (x, y) => {
+      const dx = x - endCell[0];
+      const dy = y - endCell[1];
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const startKey = key(startCell[0], startCell[1]);
+    gScore.set(startKey, 0);
+    fScore.set(startKey, h(startCell[0], startCell[1]));
+    open.set(startKey, { x: startCell[0], y: startCell[1], f: fScore.get(startKey) });
+
+    const dirs = [
+      [1, 0], [-1, 0], [0, 1], [0, -1],
+      [1, 1], [1, -1], [-1, 1], [-1, -1]
+    ];
+
+    while (open.size > 0) {
+      // Pick node with smallest f
+      let currentKey = null;
+      let current = null;
+      for (const [k, v] of open.entries()) {
+        if (!current || v.f < current.f) {
+          current = v; currentKey = k;
+        }
+      }
+
+      if (current.x === endCell[0] && current.y === endCell[1]) {
+        // Reconstruct path
+        const cells = [];
+        let ck = currentKey;
+        while (ck) {
+          const [cx, cy] = ck.split(',').map(Number);
+          cells.push([cx, cy]);
+          ck = cameFrom.get(ck);
+        }
+        cells.reverse();
+        // Convert to coords and smooth
+        let coords = cells.map(toCoord);
+        const smooth = (path) => {
+          if (path.length < 3) return path;
+          const res = [path[0]];
+          for (let i = 0; i < path.length - 1; i++) {
+            const p0 = path[i];
+            const p1 = path[i + 1];
+            res.push([
+              0.75 * p0[0] + 0.25 * p1[0],
+              0.75 * p0[1] + 0.25 * p1[1]
+            ]);
+            res.push([
+              0.25 * p0[0] + 0.75 * p1[0],
+              0.25 * p0[1] + 0.75 * p1[1]
+            ]);
+          }
+          res.push(path[path.length - 1]);
+          return res;
+        };
+        coords = smooth(coords);
+        coords = smooth(coords);
+        return coords;
+      }
+
+      open.delete(currentKey);
+
+      for (const [dx, dy] of dirs) {
+        const nx = current.x + dx;
+        const ny = current.y + dy;
+        if (nx < 0 || ny < 0 || nx >= gridN || ny >= gridN) continue;
+
+        const nKey = key(nx, ny);
+        const coord = toCoord([nx, ny]);
+        const moveCost = (dx === 0 || dy === 0) ? 1 : Math.SQRT2;
+        const tentativeG = gScore.get(currentKey) + moveCost * obstacleCost(coord[0], coord[1]);
+
+        if (tentativeG >= (gScore.get(nKey) || Infinity)) continue;
+
+        cameFrom.set(nKey, currentKey);
+        gScore.set(nKey, tentativeG);
+        const f = tentativeG + h(nx, ny);
+        fScore.set(nKey, f);
+        open.set(nKey, { x: nx, y: ny, f });
+      }
     }
 
-    setIsLocating(true)
-    addLog('Detecting your location...', 'info')
+    // Fallback if path not found
+    return generateFlyoverPath(start, end, 70);
+  };
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { longitude, latitude } = position.coords
-        setUserCoords([longitude, latitude])
+  // Sample Mapbox 3D building layer to estimate local height/density for path points
+  const sampleBuildingBoost = (coord) => {
+    if (!map.current) return { boost: 0, count: 0, avgHeight: 0 };
+    const p = map.current.project({ lng: coord[0], lat: coord[1] });
+    const radiusPx = 28;
+    const features = map.current.queryRenderedFeatures(
+      [{ x: p.x - radiusPx, y: p.y - radiusPx }, { x: p.x + radiusPx, y: p.y + radiusPx }],
+      { layers: ['3d-buildings'] }
+    );
+    if (!features || features.length === 0) return { boost: 0, count: 0, avgHeight: 0 };
+    const sum = features.reduce((acc, f) => acc + (parseFloat(f.properties?.height) || 0), 0);
+    const avg = sum / features.length;
+    // Boost height modestly based on average height and density
+    const boost = Math.min(12, (avg / 10) + features.length * 0.5);
+    return { boost, count: features.length, avgHeight: avg };
+  };
+
+  const buildPathHeights = (flyoverPath, baseHeight) => {
+    return flyoverPath.map((pt, idx) => {
+      // Sample every 2nd point to reduce queries; interpolate for skipped ones
+      if (idx % 2 === 0) {
+        const { boost } = sampleBuildingBoost(pt);
+        return baseHeight + boost;
+      }
+      // For odd indices, average neighbors if available
+      const prev = Math.max(0, idx - 1);
+      const next = Math.min(flyoverPath.length - 1, idx + 1);
+      const prevHeight = baseHeight + sampleBuildingBoost(flyoverPath[prev]).boost;
+      const nextHeight = baseHeight + sampleBuildingBoost(flyoverPath[next]).boost;
+      return (prevHeight + nextHeight) / 2;
+    });
+  };
+
+  const runSimulation = async () => {
+    if (!origin.trim() || !destination.trim()) {
+      addLog('Please set origin and destination', 'error');
+      return;
+    }
+
+    setLoading(true);
+    setStats(null);
+    clearMap();
+    addLog('🏗️ L-DRAGO Architect AI initializing...', 'system');
+
+    try {
+      let startCoords = originCoords;
+      let endCoords = destCoords;
+
+      if (!startCoords) {
+        addLog('Geocoding origin...', 'info');
+        startCoords = await geocodeLocation(origin);
+        setOriginCoords(startCoords);
+        updateOriginMarker(startCoords);
+      }
+
+      if (!endCoords) {
+        addLog('Geocoding destination...', 'info');
+        endCoords = await geocodeLocation(destination);
+        setDestCoords(endCoords);
+        updateDestMarker(endCoords);
+      }
+
+      addLog('📍 Start: [' + startCoords[1].toFixed(4) + ', ' + startCoords[0].toFixed(4) + ']', 'info');
+      addLog('📍 End: [' + endCoords[1].toFixed(4) + ', ' + endCoords[0].toFixed(4) + ']', 'info');
+
+      // Calculate DIRECT flyover distance (not street route)
+      const directDistanceKm = haversineDistance(startCoords, endCoords);
+      addLog('📏 Direct distance: ' + directDistanceKm.toFixed(2) + ' km', 'info');
+
+      // Get street route for COMPARISON only (to show how much better flyover is)
+      addLog('🛣️ Analyzing existing street route for comparison...', 'system');
+      let streetDistanceKm = directDistanceKm * 1.4; // Default estimate
+      let streetDurationMin = directDistanceKm * 3; // Rough estimate
+      
+      try {
+        const routeRes = await fetch(
+          'https://api.mapbox.com/directions/v5/mapbox/driving/' + startCoords[0] + ',' + startCoords[1] + ';' + endCoords[0] + ',' + endCoords[1] + '?geometries=geojson&overview=full&access_token=' + mapboxgl.accessToken
+        );
+        const routeData = await routeRes.json();
+        if (routeData.routes && routeData.routes.length) {
+          streetDistanceKm = routeData.routes[0].distance / 1000;
+          streetDurationMin = routeData.routes[0].duration / 60;
+          
+          // Draw the old street route in gray (for comparison)
+          map.current.addSource('street-route', {
+            type: 'geojson',
+            data: { type: 'Feature', geometry: routeData.routes[0].geometry }
+          });
+          map.current.addLayer({
+            id: 'street-route',
+            type: 'line',
+            source: 'street-route',
+            paint: { 'line-color': '#444444', 'line-width': 4, 'line-dasharray': [2, 2], 'line-opacity': 0.6 }
+          });
+          addLog('📊 Current street route: ' + streetDistanceKm.toFixed(2) + ' km, ' + Math.round(streetDurationMin) + ' min', 'info');
+        }
+      } catch (e) {
+        addLog('Could not fetch street route for comparison', 'info');
+      }
+
+      // Generate PRELIMINARY flyover path (smooth arc) before obstacle-aware refinement
+      addLog('✨ Drafting preliminary flyover curve...', 'system');
+      const provisionalPath = generateFlyoverPath(startCoords, endCoords, 70);
+
+      // Query AI for infrastructure analysis along the CUSTOM path
+      addLog('🔍 Scanning flyover corridor for obstacles...', 'system');
+      
+      let aiData = null;
+      let infrastructure = null;
+      
+      try {
+        const aiRes = await fetch(API_BASE + '/plan-coords', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            start_lat: startCoords[1],
+            start_lon: startCoords[0],
+            end_lat: endCoords[1],
+            end_lon: endCoords[0],
+            route_coords: provisionalPath  // Send our draft custom path for infra scan
+          })
+        });
         
-        // Reverse geocode
-        try {
-          const placeName = await reverseGeocode(longitude, latitude)
-          setFromLocation(placeName.split(',')[0]) // Use short name
-          addLog(`Located: ${placeName.split(',')[0]}`, 'success')
-        } catch {
-          setFromLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
+        if (aiRes.ok) {
+          aiData = await aiRes.json();
+          
+          if (aiData.architect_notes) {
+            aiData.architect_notes.forEach(function(note) {
+              if (note.includes('⚠️')) {
+                addLog(note, 'error');
+              } else if (note.includes('✓') || note.includes('Design:')) {
+                addLog(note, 'success');
+              } else {
+                addLog(note, 'system');
+              }
+            });
+          }
+          
+          infrastructure = aiData.infrastructure;
+        }
+      } catch (aiErr) {
+        addLog('⚠️ Using default analysis (backend unavailable)', 'info');
+      }
+
+      // Build obstacle-aware flyover path using infrastructure insights
+      addLog('🧠 Bending flyover around obstacles (buildings, junctions, rail)...', 'system');
+      const flyoverPath = buildObstacleAwarePath(startCoords, endCoords, infrastructure);
+
+      // Calculate flyover distance along the refined curve
+      let flyoverDistanceKm = 0;
+      for (let i = 1; i < flyoverPath.length; i++) {
+        flyoverDistanceKm += haversineDistance(flyoverPath[i-1], flyoverPath[i]);
+      }
+
+      // Show distance savings
+      const distanceSaved = streetDistanceKm - flyoverDistanceKm;
+      const distanceSavedPercent = Math.max(0, (distanceSaved / streetDistanceKm * 100).toFixed(0));
+      addLog('🛫 Flyover path: ' + flyoverDistanceKm.toFixed(2) + ' km (direct over obstacles)', 'success');
+      addLog('💡 Distance saved: ' + distanceSaved.toFixed(2) + ' km (' + distanceSavedPercent + '% shorter)', 'success');
+
+      // Calculate smart pillar positions along the CUSTOM flyover path
+      addLog('🏛️ Computing optimal pillar positions...', 'system');
+      
+      const pillarSpacingM = 30; // 30 meters between pillars
+      const pillarSpacingDeg = pillarSpacingM / 111000; // Approximate degrees
+      const smartPillars = [];
+      let accumulatedDist = 0;
+      let skippedForBuildings = 0;
+      
+      // Start anchor
+      smartPillars.push({
+        coords: flyoverPath[0],
+        type: 'anchor',
+        id: 1,
+        reason: 'Ramp start - connects to ground level'
+      });
+      
+      for (let i = 1; i < flyoverPath.length; i++) {
+        const prev = flyoverPath[i - 1];
+        const curr = flyoverPath[i];
+        const segDist = Math.sqrt(Math.pow(curr[0] - prev[0], 2) + Math.pow(curr[1] - prev[1], 2));
+        accumulatedDist += segDist;
+        
+        if (accumulatedDist >= pillarSpacingDeg) {
+          // Check if near infrastructure (junction, railway, etc.)
+          let pillarType = 'standard';
+          let reason = 'Standard support pillar';
+          let placePillar = true;
+          
+          // Avoid placing pillars inside buildings
+          if (infrastructure && infrastructure.buildings) {
+            for (const b of infrastructure.buildings) {
+              const c = b.center || (Array.isArray(b.coords) && b.coords[0]);
+              if (!c) continue;
+              const bDist = haversineDistance(curr, c) * 1000; // m
+              if (bDist < 25) {
+                placePillar = false; // span over building
+                skippedForBuildings += 1;
+                reason = 'Spanning over building - no pillar here';
+                break;
+              }
+            }
+          }
+          
+          if (infrastructure) {
+            // Check for nearby junctions
+            for (const junction of (infrastructure.junctions || [])) {
+              const jDist = Math.sqrt(
+                Math.pow(curr[0] - junction.coords[0], 2) + 
+                Math.pow(curr[1] - junction.coords[1], 2)
+              );
+              if (jDist < 0.0003) { // ~30m
+                pillarType = 'elevated';
+                reason = 'Elevated span over junction - no pillar here';
+                break;
+              }
+            }
+            
+            // Check for railways
+            for (const rail of (infrastructure.railways || [])) {
+              if (rail.coords && Array.isArray(rail.coords[0])) {
+                for (const rc of rail.coords) {
+                  const rDist = Math.sqrt(Math.pow(curr[0] - rc[0], 2) + Math.pow(curr[1] - rc[1], 2));
+                  if (rDist < 0.0004) {
+                    pillarType = 'special';
+                    reason = 'Railway crossing - increased clearance 7m+';
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          
+          if (placePillar && pillarType !== 'elevated') {
+            smartPillars.push({
+              coords: curr,
+              type: pillarType,
+              id: smartPillars.length + 1,
+              reason: reason
+            });
+          }
+          accumulatedDist = 0;
+        }
+      }
+      
+      // End anchor
+      smartPillars.push({
+        coords: flyoverPath[flyoverPath.length - 1],
+        type: 'anchor',
+        id: smartPillars.length + 1,
+        reason: 'Ramp end - connects to ground level'
+      });
+      
+      addLog('✓ Designed ' + smartPillars.length + ' support pillars', 'success');
+      if (skippedForBuildings > 0) {
+        addLog('🏢 Spanning over ' + skippedForBuildings + ' building zones (no pillars placed there)', 'info');
+      }
+
+      // Draw the CUSTOM flyover path (bright green - the new direct route)
+      map.current.addSource('flyover-route', {
+        type: 'geojson',
+        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: flyoverPath } }
+      });
+
+      map.current.addLayer({
+        id: 'route-line',
+        type: 'line',
+        source: 'flyover-route',
+        paint: { 'line-color': '#88aa44', 'line-width': 3, 'line-opacity': 0.4 }
+      });
+
+      // Draw 3D flyover corridor
+      const corridorWidth = 0.00018; // Wider for visibility
+      const corridorPolygons = [];
+
+      for (let i = 0; i < flyoverPath.length - 1; i++) {
+        const p1 = flyoverPath[i];
+        const p2 = flyoverPath[i + 1];
+        const angle = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+        const perpAngle = angle + Math.PI / 2;
+        const dx = Math.cos(perpAngle) * corridorWidth;
+        const dy = Math.sin(perpAngle) * corridorWidth;
+
+        corridorPolygons.push([[
+          [p1[0] - dx, p1[1] - dy],
+          [p1[0] + dx, p1[1] + dy],
+          [p2[0] + dx, p2[1] + dy],
+          [p2[0] - dx, p2[1] - dy],
+          [p1[0] - dx, p1[1] - dy]
+        ]]);
+      }
+
+      map.current.addSource('flyover-corridor', {
+        type: 'geojson',
+        data: { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: corridorPolygons } }
+      });
+
+      const flyoverHeight = (aiData && aiData.flyover_height_m) || 12;
+      // Skip the 2D corridor extrusion since we have proper 3D now
+
+      // Build per-point heights based on Mapbox 3D buildings to lift deck over dense areas
+      const pathHeights = buildPathHeights(flyoverPath, flyoverHeight);
+
+      // Add Three.js deck & pillars for richer 3D visualization
+      addFlyoverLayer(map.current, {
+        flyover_path: flyoverPath,
+        pathHeights,
+        flyover_width_m: (aiData && aiData.flyover_width_m) || 12,
+        flyover_height_m: flyoverHeight,
+        pillars: smartPillars.map(p => p.coords)
+      });
+
+      // Draw pillars with different colors by type
+      const pillarFeatures = smartPillars.map(function(pillar) {
+        return {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: pillar.coords },
+          properties: {
+            id: pillar.id,
+            type: pillar.type,
+            reason: pillar.reason
+          }
+        };
+      });
+
+      map.current.addSource('ai-pillars', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: pillarFeatures }
+      });
+
+      map.current.addLayer({
+        id: 'pillars',
+        type: 'circle',
+        source: 'ai-pillars',
+        paint: {
+          'circle-radius': 4,
+          'circle-color': [
+            'match',
+            ['get', 'type'],
+            'anchor', '#4a90a4',
+            'special', '#8b5a8b',
+            '#6b6b6b'
+          ],
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.6
+        }
+      });
+
+      // Pillar labels - smaller and subtler
+      map.current.addLayer({
+        id: 'pillar-labels',
+        type: 'symbol',
+        source: 'ai-pillars',
+        layout: {
+          'text-field': ['get', 'id'],
+          'text-size': 8,
+          'text-offset': [0, -1.2]
+        },
+        paint: {
+          'text-color': '#555555',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 0.8,
+          'text-opacity': 0.7
+        }
+      });
+
+      // Draw infrastructure overlays
+      if (infrastructure) {
+        if (infrastructure.existing_bridges && infrastructure.existing_bridges.length > 0) {
+          const bridgeFeatures = infrastructure.existing_bridges
+            .filter(b => b.coords && b.coords.length > 1)
+            .map(bridge => ({
+              type: 'Feature',
+              geometry: { type: 'LineString', coordinates: bridge.coords },
+              properties: { name: bridge.name }
+            }));
+          
+          if (bridgeFeatures.length > 0) {
+            map.current.addSource('existing-bridges', {
+              type: 'geojson',
+              data: { type: 'FeatureCollection', features: bridgeFeatures }
+            });
+            map.current.addLayer({
+              id: 'existing-bridges',
+              type: 'line',
+              source: 'existing-bridges',
+              paint: { 'line-color': '#00d4ff', 'line-width': 4, 'line-dasharray': [2, 2] }
+            });
+            addLog('🌉 Found ' + bridgeFeatures.length + ' existing bridges (blue)', 'info');
+          }
         }
 
-        // Add/update user marker
-        if (userMarkerRef.current) userMarkerRef.current.remove()
-        
-        const el = document.createElement('div')
-        el.className = 'user-location-marker'
-        el.innerHTML = '<div class="pulse"></div><div class="dot"></div>'
-        
-        userMarkerRef.current = new mapboxgl.Marker({ element: el })
-          .setLngLat([longitude, latitude])
-          .addTo(mapRef.current)
+        if (infrastructure.junctions && infrastructure.junctions.length > 0) {
+          const junctionFeatures = infrastructure.junctions.map(j => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: j.coords },
+            properties: { type: j.type }
+          }));
+          
+          map.current.addSource('junctions', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: junctionFeatures }
+          });
+          map.current.addLayer({
+            id: 'junctions',
+            type: 'circle',
+            source: 'junctions',
+            paint: {
+              'circle-radius': 15,
+              'circle-color': 'transparent',
+              'circle-stroke-width': 3,
+              'circle-stroke-color': '#ffff00'
+            }
+          });
+          addLog('⚠️ ' + junctionFeatures.length + ' junctions (flyover spans over)', 'info');
+        }
 
-        mapRef.current.flyTo({ center: [longitude, latitude], zoom: 14, pitch: 45 })
-        setIsLocating(false)
-      },
-      (error) => {
-        addLog(`Location error: ${error.message}`, 'error')
-        setIsLocating(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }
-
-  // Search and go to location
-  const searchLocation = async () => {
-    if (!searchQuery.trim()) return
-    
-    try {
-      addLog(`Searching: ${searchQuery}`, 'info')
-      const result = await geocode(searchQuery)
-      mapRef.current.flyTo({ center: result.coords, zoom: 15, pitch: 45 })
-      addLog(`Found: ${result.name}`, 'success')
-      setSearchQuery('')
-    } catch (err) {
-      addLog(err.message, 'error')
-    }
-  }
-
-  // Clear visualization
-  const clearVisualization = () => {
-    markersRef.current.forEach(m => m.remove())
-    markersRef.current = []
-    if (mapRef.current.getSource('flyover-corridor')) {
-      mapRef.current.getSource('flyover-corridor').setData({ type: 'FeatureCollection', features: [] })
-    }
-    if (mapRef.current.getSource('ground-route')) {
-      mapRef.current.getSource('ground-route').setData({ type: 'FeatureCollection', features: [] })
-    }
-    if (mapRef.current.getSource('flyover-pillars')) {
-      mapRef.current.getSource('flyover-pillars').setData({ type: 'FeatureCollection', features: [] })
-    }
-  }
-
-  // Simulate flyover
-  const simulateFlyover = async () => {
-    if (!fromLocation || !toLocation) {
-      addLog('Please enter both origin and destination', 'error')
-      return
-    }
-
-    setIsProcessing(true)
-    setStats(null)
-    setAnalysisLog([])
-    clearVisualization()
-
-    try {
-      // Phase 1: Geocoding
-      addLog('L-DRAGO: Initializing spatial analysis...', 'system')
-      addLog(`Geocoding origin: ${fromLocation}`, 'info')
-      
-      const startResult = await geocode(fromLocation)
-      addLog(`Origin resolved: ${startResult.name}`, 'success')
-      
-      addLog(`Geocoding destination: ${toLocation}`, 'info')
-      const endResult = await geocode(toLocation)
-      addLog(`Destination resolved: ${endResult.name}`, 'success')
-
-      // Add markers
-      const startMarker = new mapboxgl.Marker({ color: '#CCFF00' })
-        .setLngLat(startResult.coords)
-        .setPopup(new mapboxgl.Popup().setHTML(`<b>Origin</b><br>${startResult.name}`))
-        .addTo(mapRef.current)
-      
-      const endMarker = new mapboxgl.Marker({ color: '#ff4d00' })
-        .setLngLat(endResult.coords)
-        .setPopup(new mapboxgl.Popup().setHTML(`<b>Destination</b><br>${endResult.name}`))
-        .addTo(mapRef.current)
-      
-      markersRef.current.push(startMarker, endMarker)
-
-      // Phase 2: Routing
-      addLog('L-DRAGO: Computing optimal route...', 'system')
-      await new Promise(r => setTimeout(r, 400))
-      
-      const route = await getRoute(startResult.coords, endResult.coords)
-      const routeCoords = route.geometry.coordinates
-      
-      addLog(`Route: ${(route.distance / 1000).toFixed(2)} km, ${(route.duration / 60).toFixed(1)} min`, 'success')
-
-      // Show ground route
-      mapRef.current.getSource('ground-route').setData({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: routeCoords }
-      })
-
-
-      // Phase 3: Generate flyover (Three.js 3D agent)
-      addLog('L-DRAGO: Generating advanced 3D flyover...', 'system')
-      await new Promise(r => setTimeout(r, 500))
-
-      // Remove any previous 3D flyover
-      removeFlyoverLayer(mapRef.current)
-
-      // Prepare flyover data for the agent
-      const flyoverData = {
-        flyover_path: routeCoords,
-        flyover_width_m: 18,
-        flyover_height_m: 15,
-        pillars: [], // let the agent auto-place pillars
+        if (infrastructure.railways && infrastructure.railways.length > 0) {
+          const railFeatures = infrastructure.railways
+            .filter(r => r.coords && Array.isArray(r.coords) && r.coords.length > 1 && Array.isArray(r.coords[0]))
+            .map(rail => ({
+              type: 'Feature',
+              geometry: { type: 'LineString', coordinates: rail.coords },
+              properties: { name: rail.name }
+            }));
+          
+          if (railFeatures.length > 0) {
+            map.current.addSource('railways', {
+              type: 'geojson',
+              data: { type: 'FeatureCollection', features: railFeatures }
+            });
+            map.current.addLayer({
+              id: 'railways',
+              type: 'line',
+              source: 'railways',
+              paint: { 'line-color': '#ff00ff', 'line-width': 3 }
+            });
+            addLog('🚂 ' + railFeatures.length + ' railway lines (magenta)', 'info');
+          }
+        }
       }
-      addFlyoverLayer(mapRef.current, flyoverData)
-      addLog('3D flyover rendered with advanced geometry', 'success')
 
-      // Fit bounds
-      const bounds = new mapboxgl.LngLatBounds()
-      routeCoords.forEach(c => bounds.extend(c))
-      mapRef.current.fitBounds(bounds, { padding: 80, pitch: 50, bearing: -15 })
+      // Fit map to show both old route and new flyover
+      const bounds = new mapboxgl.LngLatBounds();
+      flyoverPath.forEach(c => bounds.extend(c));
+      map.current.fitBounds(bounds, { padding: 100, duration: 1500 });
 
-      // Phase 4: Impact stats
-      addLog('L-DRAGO: Calculating traffic impact...', 'system')
-      await new Promise(r => setTimeout(r, 400))
+      // Calculate stats
+      const flyoverSpeedKmh = 60; // Flyovers allow higher speed
+      const streetSpeedKmh = 25; // Congested street speed
+      const flyoverTimeMin = (flyoverDistanceKm / flyoverSpeedKmh) * 60;
+      const timeSaved = Math.round(streetDurationMin - flyoverTimeMin);
+      const timeSavedPercent = Math.round((timeSaved / streetDurationMin) * 100);
 
-      const distKm = route.distance / 1000
-      const originalTime = route.duration / 60
-      const timeSaved = Math.round(originalTime * 0.35)
-      const congestionReduction = Math.round(25 + Math.random() * 20)
-      const vehiclesPerHour = Math.round(2500 + Math.random() * 1500)
-      const co2Reduction = Math.round(distKm * 18)
+      const anchorPillars = smartPillars.filter(p => p.type === 'anchor').length;
+      const specialPillars = smartPillars.filter(p => p.type === 'special').length;
 
       setStats({
-        distance: distKm.toFixed(2),
-        timeSaved,
-        congestionReduction,
-        vehiclesPerHour,
-        pillars: pillars.length,
-        co2Reduction
-      })
+        lanes: flyoverDistanceKm > 1.5 ? 4 : 2,
+        width: flyoverDistanceKm > 1.5 ? 14 : 9,
+        height: flyoverHeight,
+        pillars: smartPillars.length,
+        anchorPillars: anchorPillars,
+        specialPillars: specialPillars,
+        pillarSpacing: pillarSpacingM,
+        flyoverDistance: flyoverDistanceKm.toFixed(2),
+        streetDistance: streetDistanceKm.toFixed(2),
+        distanceSaved: distanceSaved.toFixed(2),
+        distanceSavedPercent: distanceSavedPercent,
+        streetTime: Math.round(streetDurationMin),
+        flyoverTime: Math.round(flyoverTimeMin),
+        timeSaved: timeSaved,
+        timeSavedPercent: timeSavedPercent,
+        existingBridges: infrastructure ? (infrastructure.existing_bridges || []).length : 0,
+        junctions: infrastructure ? (infrastructure.junctions || []).length : 0,
+        railways: infrastructure ? (infrastructure.railways || []).length : 0
+      });
 
-      addLog('L-DRAGO: SIMULATION COMPLETE ✓', 'success')
+      // Store flyover data for 3D viewer
+      setFlyoverData({
+        flyover_path: flyoverPath,
+        pillars: smartPillars.map(p => p.coords),
+        flyover_width_m: flyoverDistanceKm > 1.5 ? 14 : 9,
+        flyover_height_m: flyoverHeight,
+        flyover_lanes: flyoverDistanceKm > 1.5 ? 4 : 2,
+        pillar_spacing_m: pillarSpacingM,
+      });
 
-    } catch (err) {
-      addLog(`Error: ${err.message}`, 'error')
+      setMapStatus('VISUALIZED');
+      addLog('✅ Custom flyover design complete!', 'success');
+      addLog('⏱️ Time saved: ' + timeSaved + ' min (' + timeSavedPercent + '% faster!)', 'success');
+      addLog('📏 Distance saved: ' + distanceSaved.toFixed(1) + ' km (' + distanceSavedPercent + '% shorter!)', 'success');
+
+    } catch (error) {
+      console.error('Simulation error:', error);
+      addLog('❌ Error: ' + error.message, 'error');
+      setMapStatus('ERROR');
     } finally {
-      setIsProcessing(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <>
-      <CustomCursor />
-      
-      <AnimatePresence mode="wait">
-        {pageLoading && <OVLoader key="entry-loader" onComplete={() => setPageLoading(false)} />}
-      </AnimatePresence>
-      
-      <AnimatePresence mode="wait">
-        {exiting && <ExitLoader key="exit-loader" onComplete={handleExitComplete} />}
-      </AnimatePresence>
-      
-      <AnimatePresence>
-        {!pageLoading && !exiting && (
-    <motion.div 
-      className="flyover-page"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      {/* Navbar */}
+    <div className="flyover-page">
       <nav className="flyover-navbar">
-        <a href="/" onClick={handleBackHome} className="flyover-logo">OVERHAUL</a>
+        <a href="/" className="flyover-logo">L-DRAGO</a>
         <div className="flyover-nav-center">
           <span className="flyover-nav-dot"></span>
-          <span>3D FLYOVER SIMULATOR</span>
-          <span className="flyover-nav-tag">L-DRAGO</span>
+          <span>AI FLYOVER SIMULATOR</span>
+          <span className="flyover-nav-tag">v3.0</span>
         </div>
-        <a href="/demo" onClick={handleBackDemo} className="flyover-back-btn">← BACK TO DEMO</a>
+        <div className="nav-status">STATUS: {mapStatus}</div>
       </nav>
 
       <main className="flyover-main">
-        {/* Map Section */}
         <section className="flyover-map-section">
           <div className="flyover-map-card">
             <div className="flyover-card-header">
-              <span>3D FLYOVER VISUALIZATION</span>
-              {!mapLoaded && <span className="flyover-loading-tag">LOADING</span>}
+              <span>TERRAIN ANALYSIS</span>
+              <span className={'flyover-tag ' + (mapStatus === 'ERROR' ? 'error' : mapStatus === 'VISUALIZED' ? 'success' : '')}>
+                {pinMode ? 'CLICK MAP TO SET ' + pinMode.toUpperCase() : mapStatus}
+              </span>
             </div>
-            
             <div className="flyover-map-wrapper">
-              <div ref={mapContainer} className="flyover-map" />
+              <div ref={mapContainer} className={'flyover-map ' + (pinMode ? 'pin-mode' : '')} />
               
-              {/* Search Bar on Map */}
               <div className="map-search-bar">
                 <input
                   type="text"
                   placeholder="Search location..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && searchLocation()}
+                  onChange={function(e) { setSearchQuery(e.target.value); }}
+                  onKeyPress={function(e) { if (e.key === 'Enter') handleSearch(); }}
                 />
-                <button onClick={searchLocation}>🔍</button>
+                <button onClick={handleSearch}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                </button>
               </div>
 
-              {/* My Location Button */}
               <button 
                 className="my-location-btn" 
                 onClick={getUserLocation}
-                disabled={isLocating}
-                title="My Location"
+                disabled={gettingLocation}
+                title="Get my location"
               >
-                {isLocating ? (
-                  <span className="loc-spinner"></span>
+                {gettingLocation ? (
+                  <div className="loc-spinner" />
                 ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                    <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
                   </svg>
                 )}
               </button>
@@ -824,30 +990,25 @@ export default function FlyoverSim() {
           </div>
         </section>
 
-        {/* Control Panel */}
         <aside className="flyover-control-panel">
-          {/* Input Section */}
           <div className="flyover-input-section">
             <div className="flyover-card-header">
-              <span>FLYOVER PLANNER</span>
-              <span className="flyover-tag">INPUT</span>
+              <span>ROUTE PARAMETERS</span>
             </div>
-
             <div className="flyover-inputs">
               <div className="flyover-input-group">
-                <label>ORIGIN</label>
+                <label>ORIGIN (START POINT)</label>
                 <div className="input-with-btn">
                   <input
                     type="text"
-                    placeholder="Enter starting point"
-                    value={fromLocation}
-                    onChange={(e) => setFromLocation(e.target.value)}
+                    placeholder="Click pin or type location..."
+                    value={origin}
+                    onChange={function(e) { setOrigin(e.target.value); setOriginCoords(null); }}
                   />
                   <button 
-                    className="use-location-btn" 
-                    onClick={getUserLocation}
-                    disabled={isLocating}
-                    title="Use my location"
+                    className={'pin-btn ' + (pinMode === 'origin' ? 'active' : '')}
+                    onClick={function() { setPinMode(pinMode === 'origin' ? null : 'origin'); }}
+                    title="Drop pin on map"
                   >
                     📍
                   </button>
@@ -855,503 +1016,216 @@ export default function FlyoverSim() {
               </div>
 
               <div className="flyover-input-group">
-                <label>DESTINATION</label>
-                <input
-                  type="text"
-                  placeholder="Enter destination"
-                  value={toLocation}
-                  onChange={(e) => setToLocation(e.target.value)}
-                />
+                <label>DESTINATION (END POINT)</label>
+                <div className="input-with-btn">
+                  <input
+                    type="text"
+                    placeholder="Click pin or type location..."
+                    value={destination}
+                    onChange={function(e) { setDestination(e.target.value); setDestCoords(null); }}
+                  />
+                  <button 
+                    className={'pin-btn ' + (pinMode === 'destination' ? 'active' : '')}
+                    onClick={function() { setPinMode(pinMode === 'destination' ? null : 'destination'); }}
+                    title="Drop pin on map"
+                  >
+                    📍
+                  </button>
+                </div>
               </div>
 
               <button 
-                className="simulate-btn"
-                onClick={simulateFlyover}
-                disabled={isProcessing || !fromLocation || !toLocation}
+                className="simulate-btn" 
+                onClick={runSimulation}
+                disabled={loading || !origin || !destination}
               >
-                {isProcessing ? (
-                  <span className="btn-spinner"></span>
-                ) : (
-                  'SIMULATE FLYOVER'
-                )}
+                {loading ? <div className="btn-spinner" /> : 'GENERATE AI FLYOVER'}
               </button>
             </div>
           </div>
 
-          {/* Analysis Log */}
           <div className="flyover-log-section">
             <div className="flyover-card-header">
-              <span>L-DRAGO ANALYSIS</span>
-              {analysisLog.some(l => l.type === 'error') && <span className="flyover-tag error">ERROR</span>}
+              <span>AI ANALYSIS LOG</span>
+              <span className="flyover-tag">{logs.length} ENTRIES</span>
             </div>
             <div className="flyover-log-content">
-              {analysisLog.length === 0 ? (
-                <div className="log-empty">Awaiting simulation...</div>
+              {logs.length === 0 ? (
+                <div className="log-empty">Drop pins to set start/end points...</div>
               ) : (
-                analysisLog.map((log, i) => (
-                  <div key={i} className={`log-entry log-${log.type}`}>
-                    <span className="log-time">{log.time}</span>
-                    <span className="log-msg">{log.message}</span>
-                  </div>
-                ))
+                logs.map(function(log, i) {
+                  return (
+                    <div key={i} className={'log-entry log-' + log.type}>
+                      <span className="log-time">{log.time}</span>
+                      <span className="log-msg">{log.msg}</span>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
 
-          {/* Stats */}
           {stats && (
-            <motion.div 
-              className="flyover-stats-section"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <div className="flyover-stats-section">
               <div className="flyover-card-header">
-                <span>TRAFFIC IMPACT</span>
-                <span className="flyover-tag success">COMPLETE</span>
+                <span>🏗️ CUSTOM FLYOVER DESIGN</span>
+                <span className="flyover-tag success">DIRECT ROUTE</span>
               </div>
+              
               <div className="stats-grid">
                 <div className="stat-item highlight">
-                  <span className="stat-value">-{stats.timeSaved}m</span>
-                  <span className="stat-label">TIME SAVED</span>
+                  <span className="stat-value">{stats.lanes}</span>
+                  <span className="stat-label">FLYOVER LANES</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-value">{stats.width}m</span>
+                  <span className="stat-label">DECK WIDTH</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-value">{stats.congestionReduction}%</span>
-                  <span className="stat-label">LESS TRAFFIC</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-value">{stats.vehiclesPerHour}</span>
-                  <span className="stat-label">VEH/HOUR</span>
+                  <span className="stat-value">{stats.height}m</span>
+                  <span className="stat-label">CLEARANCE</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-value">{stats.pillars}</span>
-                  <span className="stat-label">PILLARS</span>
+                  <span className="stat-label">TOTAL PILLARS</span>
                 </div>
               </div>
-              <div className="eco-badge">
-                🌿 ~{stats.co2Reduction} kg CO₂ reduction/day
+
+              <div className="stats-divider">📏 DISTANCE COMPARISON</div>
+              <div className="stats-grid">
+                <div className="stat-item">
+                  <span className="stat-value" style={{color: '#444'}}>{stats.streetDistance || stats.distance} km</span>
+                  <span className="stat-label">STREET ROUTE</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-value" style={{color: '#CCFF00'}}>{stats.flyoverDistance || stats.distance} km</span>
+                  <span className="stat-label">FLYOVER (DIRECT)</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-value" style={{color: '#00ff88'}}>-{stats.distanceSaved || '0'} km</span>
+                  <span className="stat-label">DISTANCE SAVED</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-value" style={{color: '#00ff88'}}>{stats.distanceSavedPercent || 0}% ↓</span>
+                  <span className="stat-label">SHORTER</span>
+                </div>
               </div>
-            </motion.div>
+
+              <div className="stats-divider">⏱️ TIME COMPARISON</div>
+              <div className="stats-grid">
+                <div className="stat-item">
+                  <span className="stat-value" style={{color: '#ff6b6b'}}>{stats.streetTime || stats.currentTime} min</span>
+                  <span className="stat-label">STREET TIME</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-value" style={{color: '#CCFF00'}}>{stats.flyoverTime || stats.newTime} min</span>
+                  <span className="stat-label">FLYOVER TIME</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-value" style={{color: '#00ff88'}}>-{stats.timeSaved} min</span>
+                  <span className="stat-label">TIME SAVED</span>
+                </div>
+                <div className="stat-item highlight">
+                  <span className="stat-value" style={{color: '#00ff88'}}>{stats.timeSavedPercent || 0}% ↓</span>
+                  <span className="stat-label">FASTER</span>
+                </div>
+              </div>
+
+              <div className="stats-divider">🔍 INFRASTRUCTURE SCAN</div>
+              <div className="stats-grid">
+                <div className="stat-item">
+                  <span className="stat-value" style={{color: '#00d4ff'}}>{stats.existingBridges || 0}</span>
+                  <span className="stat-label">EXISTING BRIDGES</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value" style={{color: '#ffff00'}}>{stats.junctions || 0}</span>
+                  <span className="stat-label">JUNCTIONS SPANNED</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value" style={{color: '#ff00ff'}}>{stats.railways || 0}</span>
+                  <span className="stat-label">RAILWAY CROSSINGS</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value" style={{color: '#ff00ff'}}>{stats.specialPillars || 0}</span>
+                  <span className="stat-label">SPECIAL PILLARS</span>
+                </div>
+              </div>
+
+              <div className="pillar-legend">
+                <span><span className="legend-dot anchor"></span> Anchor</span>
+                <span><span className="legend-dot standard"></span> Standard</span>
+                <span><span className="legend-dot" style={{backgroundColor: '#ff00ff'}}></span> Railway</span>
+              </div>
+
+              <div className="route-legend" style={{marginTop: '10px', fontSize: '11px', color: '#888'}}>
+                <span style={{color: '#444'}}>━━</span> Old Street Route &nbsp;
+                <span style={{color: '#CCFF00'}}>━━</span> New Flyover
+              </div>
+
+              <div className="eco-badge">
+                DIRECT ROUTE OVER OBSTACLES | ARCHITECT OPTIMIZED
+              </div>
+
+              {/* 3D Explorer Button */}
+              <button 
+                className="explore-3d-btn"
+                onClick={() => setShow3DViewer(true)}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  marginTop: '16px',
+                  background: 'linear-gradient(135deg, #CCFF00 0%, #88cc00 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#0a0a0a',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  transition: 'all 0.3s',
+                  boxShadow: '0 4px 20px rgba(204, 255, 0, 0.3)',
+                }}
+              >
+                🏗️ EXPLORE IN 3D
+                <span style={{
+                  background: '#0a0a0a',
+                  color: '#CCFF00',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                }}>
+                  HIGH-FIDELITY
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Imagen 3 AI Visualizations */}
+          {stats && (
+            <ImagenFlyoverVisuals 
+              flyoverData={{
+                flyover_lanes: stats.lanes,
+                flyover_width_m: parseFloat(stats.width),
+                flyover_height_m: parseFloat(stats.height),
+                road: { type: 'arterial' }
+              }}
+              locationName={origin || 'Delhi'}
+            />
           )}
         </aside>
       </main>
 
-      <style>{`
-        .flyover-page {
-          min-height: 100vh;
-          background: #0a0a0a;
-          color: white;
-        }
-        .flyover-navbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 15px 30px;
-          border-bottom: 1px solid rgba(204,255,0,0.15);
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 100;
-          background: rgba(10,10,10,0.95);
-          backdrop-filter: blur(10px);
-        }
-        .flyover-logo {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 1.5rem;
-          color: #CCFF00;
-          text-decoration: none;
-          letter-spacing: 2px;
-        }
-        .flyover-nav-center {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-family: 'Space Mono', monospace;
-          font-size: 0.8rem;
-          letter-spacing: 0.1em;
-        }
-        .flyover-nav-dot {
-          width: 8px;
-          height: 8px;
-          background: #ff4d00;
-          border-radius: 50%;
-          animation: pulse 2s infinite;
-        }
-        .flyover-nav-tag {
-          background: rgba(204,255,0,0.15);
-          color: #CCFF00;
-          padding: 4px 10px;
-          border-radius: 2px;
-          font-size: 0.7rem;
-        }
-        .flyover-back-btn {
-          font-family: 'Space Mono', monospace;
-          font-size: 0.75rem;
-          color: rgba(255,255,255,0.7);
-          text-decoration: none;
-          padding: 8px 15px;
-          border: 1px solid rgba(255,255,255,0.2);
-          border-radius: 2px;
-          transition: all 0.3s;
-        }
-        .flyover-back-btn:hover {
-          border-color: #CCFF00;
-          color: #CCFF00;
-        }
-        .flyover-main {
-          display: grid;
-          grid-template-columns: 1fr 400px;
-          gap: 20px;
-          padding: 80px 20px 20px;
-          height: 100vh;
-          max-width: 1800px;
-          margin: 0 auto;
-        }
-        .flyover-map-section {
-          height: calc(100vh - 100px);
-        }
-        .flyover-map-card {
-          height: 100%;
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(204,255,0,0.15);
-          border-radius: 4px;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
-        .flyover-card-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 12px 15px;
-          border-bottom: 1px solid rgba(204,255,0,0.1);
-          font-family: 'Space Mono', monospace;
-          font-size: 0.75rem;
-          letter-spacing: 0.1em;
-          color: rgba(255,255,255,0.8);
-        }
-        .flyover-loading-tag, .flyover-tag {
-          background: rgba(204,255,0,0.2);
-          color: #CCFF00;
-          padding: 3px 8px;
-          border-radius: 2px;
-          font-size: 0.65rem;
-        }
-        .flyover-tag.error {
-          background: rgba(255,77,0,0.2);
-          color: #ff4d00;
-        }
-        .flyover-tag.success {
-          background: rgba(0,255,100,0.15);
-          color: #66ff99;
-        }
-        .flyover-map-wrapper {
-          flex: 1;
-          position: relative;
-        }
-        .flyover-map {
-          width: 100%;
-          height: 100%;
-        }
-        
-        /* Search Bar on Map */
-        .map-search-bar {
-          position: absolute;
-          top: 15px;
-          left: 15px;
-          display: flex;
-          gap: 5px;
-          z-index: 10;
-        }
-        .map-search-bar input {
-          width: 220px;
-          padding: 10px 12px;
-          background: rgba(10,10,10,0.9);
-          border: 1px solid rgba(204,255,0,0.3);
-          border-radius: 2px;
-          color: white;
-          font-family: 'Space Mono', monospace;
-          font-size: 0.8rem;
-          outline: none;
-        }
-        .map-search-bar input:focus {
-          border-color: #CCFF00;
-        }
-        .map-search-bar button {
-          padding: 10px 14px;
-          background: rgba(204,255,0,0.2);
-          border: 1px solid rgba(204,255,0,0.3);
-          border-radius: 2px;
-          color: #CCFF00;
-          cursor: pointer;
-          font-size: 1rem;
-        }
-        .map-search-bar button:hover {
-          background: rgba(204,255,0,0.3);
-        }
-
-        /* My Location Button */
-        .my-location-btn {
-          position: absolute;
-          bottom: 100px;
-          right: 10px;
-          width: 40px;
-          height: 40px;
-          background: rgba(10,10,10,0.9);
-          border: 1px solid rgba(255,255,255,0.3);
-          border-radius: 4px;
-          color: white;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.3s;
-          z-index: 10;
-        }
-        .my-location-btn:hover {
-          background: rgba(204,255,0,0.2);
-          border-color: #CCFF00;
-          color: #CCFF00;
-        }
-        .my-location-btn:disabled {
-          opacity: 0.7;
-        }
-        .loc-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: #CCFF00;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        /* User Location Marker */
-        .user-location-marker {
-          position: relative;
-        }
-        .user-location-marker .dot {
-          width: 14px;
-          height: 14px;
-          background: #4285F4;
-          border: 3px solid white;
-          border-radius: 50%;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        }
-        .user-location-marker .pulse {
-          position: absolute;
-          width: 40px;
-          height: 40px;
-          background: rgba(66,133,244,0.3);
-          border-radius: 50%;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          animation: pulse-ring 2s infinite;
-        }
-
-        /* Control Panel */
-        .flyover-control-panel {
-          display: flex;
-          flex-direction: column;
-          gap: 15px;
-          height: calc(100vh - 100px);
-          overflow-y: auto;
-        }
-        .flyover-input-section, .flyover-log-section, .flyover-stats-section {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(204,255,0,0.15);
-          border-radius: 4px;
-        }
-        .flyover-inputs {
-          padding: 15px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .flyover-input-group {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .flyover-input-group label {
-          font-family: 'Space Mono', monospace;
-          font-size: 0.65rem;
-          letter-spacing: 0.15em;
-          color: rgba(255,255,255,0.5);
-        }
-        .flyover-input-group input {
-          padding: 12px;
-          background: rgba(0,0,0,0.4);
-          border: 1px solid rgba(255,255,255,0.15);
-          border-radius: 2px;
-          color: white;
-          font-family: 'Space Mono', monospace;
-          font-size: 0.85rem;
-          outline: none;
-        }
-        .flyover-input-group input:focus {
-          border-color: #CCFF00;
-        }
-        .input-with-btn {
-          display: flex;
-          gap: 8px;
-        }
-        .input-with-btn input {
-          flex: 1;
-        }
-        .use-location-btn {
-          padding: 12px 14px;
-          background: rgba(204,255,0,0.15);
-          border: 1px solid rgba(204,255,0,0.3);
-          border-radius: 2px;
-          cursor: pointer;
-          font-size: 1rem;
-        }
-        .use-location-btn:hover {
-          background: rgba(204,255,0,0.25);
-        }
-        .simulate-btn {
-          padding: 16px;
-          background: #CCFF00;
-          border: none;
-          border-radius: 2px;
-          color: #0a0a0a;
-          font-family: 'Space Mono', monospace;
-          font-size: 0.9rem;
-          font-weight: bold;
-          letter-spacing: 0.15em;
-          cursor: pointer;
-          transition: all 0.3s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-top: 5px;
-        }
-        .simulate-btn:hover:not(:disabled) {
-          box-shadow: 0 8px 30px rgba(204,255,0,0.4);
-        }
-        .simulate-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .btn-spinner {
-          width: 20px;
-          height: 20px;
-          border: 3px solid rgba(10,10,10,0.3);
-          border-top-color: #0a0a0a;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        /* Log */
-        .flyover-log-content {
-          max-height: 180px;
-          overflow-y: auto;
-          padding: 10px;
-        }
-        .log-empty {
-          padding: 20px;
-          text-align: center;
-          color: rgba(255,255,255,0.4);
-          font-family: 'Space Mono', monospace;
-          font-size: 0.75rem;
-        }
-        .log-entry {
-          display: flex;
-          gap: 10px;
-          padding: 6px 8px;
-          margin-bottom: 4px;
-          border-radius: 2px;
-          font-family: 'Space Mono', monospace;
-          font-size: 0.7rem;
-        }
-        .log-time {
-          color: rgba(255,255,255,0.4);
-          flex-shrink: 0;
-        }
-        .log-msg {
-          color: rgba(255,255,255,0.8);
-        }
-        .log-info { background: rgba(255,255,255,0.03); }
-        .log-success { background: rgba(204,255,0,0.08); }
-        .log-success .log-msg { color: #CCFF00; }
-        .log-error { background: rgba(255,77,0,0.1); }
-        .log-error .log-msg { color: #ff4d00; }
-        .log-system { background: rgba(255,77,0,0.05); border-left: 2px solid #ff4d00; }
-        .log-system .log-msg { color: #ff9966; }
-
-        /* Stats */
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1px;
-          background: rgba(204,255,0,0.1);
-          padding: 1px;
-        }
-        .stat-item {
-          background: rgba(10,10,10,0.9);
-          padding: 15px 10px;
-          text-align: center;
-        }
-        .stat-item.highlight {
-          background: rgba(204,255,0,0.1);
-        }
-        .stat-value {
-          display: block;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 1.5rem;
-          color: #CCFF00;
-        }
-        .stat-item.highlight .stat-value {
-          text-shadow: 0 0 20px rgba(204,255,0,0.5);
-        }
-        .stat-label {
-          font-family: 'Space Mono', monospace;
-          font-size: 0.6rem;
-          letter-spacing: 0.1em;
-          color: rgba(255,255,255,0.5);
-        }
-        .eco-badge {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 12px;
-          background: rgba(0,255,100,0.08);
-          border-top: 1px solid rgba(0,255,100,0.1);
-          font-family: 'Space Mono', monospace;
-          font-size: 0.75rem;
-          color: #66ff99;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        @keyframes pulse-ring {
-          0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
-        }
-
-        @media (max-width: 1100px) {
-          .flyover-main {
-            grid-template-columns: 1fr;
-            height: auto;
-          }
-          .flyover-map-section {
-            height: 50vh;
-          }
-          .flyover-control-panel {
-            height: auto;
-          }
-        }
-      `}</style>
-    </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  )
+      {/* 3D Flyover Viewer Modal */}
+      {show3DViewer && flyoverData && (
+        <Flyover3DViewer 
+          flyoverData={flyoverData}
+          locationName={origin || 'Delhi Flyover'}
+          onClose={() => setShow3DViewer(false)}
+        />
+      )}
+    </div>
+  );
 }

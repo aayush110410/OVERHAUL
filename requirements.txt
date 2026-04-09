@@ -31,6 +31,10 @@ stable-baselines3
 gym==0.26.2
 tensorboard
 structlog
+# Agent-based simulation (swarm intelligence layer)
+camel-ai==0.2.78
+camel-oasis==0.2.5
+zep-cloud==3.13.0
 flake8
 mypy
 black

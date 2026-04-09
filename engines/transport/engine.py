@@ -96,12 +96,12 @@ def _bpr_time(dist_km: float, free_speed: float, capacity: float, flow: float) -
     return t_free * (1.0 + _BPR_ALPHA * (ratio ** _BPR_BETA))
 
 
-def _dijkstra(nodes, edges, origin: str, destination: str, flow_map: Dict[str, float]) -> Dict[str, Any]:
+def _dijkstra(nodes, edges, origin: str, destination: str, flow_map: Dict[str, float], flow_ratio: float = 0.6) -> Dict[str, Any]:
     """Shortest path by travel time."""
     adj: Dict[str, List] = {n: [] for n in nodes}
     for e in edges:
         eid = f"{e['u']}->{e['v']}"
-        flow = flow_map.get(eid, e["capacity"] * 0.6)
+        flow = flow_map.get(eid, e["capacity"] * flow_ratio)
         tt = _bpr_time(e["dist_km"], e["free_speed"], e["capacity"], flow)
         adj[e["u"]].append((e["v"], tt, e))
 
@@ -164,7 +164,16 @@ class TransportEngine(SimulationEngine):
         if "edges" not in data:
             data["edges"] = _DEFAULT_EDGES
         if "ev_share" not in data:
-            data["ev_share"] = 0.05  # 5% current Delhi NCR EV share
+            # Use CSV-derived EV count if available
+            ev_count = data.get("ev_count", 0)
+            total_vehicles = 12_000_000  # Approximate NCR fleet
+            data["ev_share"] = max(ev_count / total_vehicles, 0.05) if ev_count else 0.05
+        # Calibrate default flow ratio from CSV congestion data
+        if "flow_ratio" not in data:
+            csv_congestion = data.get("baseline_congestion_pct", 55)
+            # Map CSV congestion% to flow/capacity ratio for BPR model
+            # Higher CSV congestion → higher flow ratio → more realistic baseline
+            data["flow_ratio"] = 0.40 + (csv_congestion / 100.0) * 0.45  # 0.40-0.85 range
         return data
 
     async def _run(self, scenario: Scenario, data: Dict[str, Any]) -> SimulationResult:
@@ -172,6 +181,7 @@ class TransportEngine(SimulationEngine):
         edges = list(data.get("edges", _DEFAULT_EDGES))
         ev_share = data.get("ev_share", 0.05)
         flow_map = data.get("flow_map", {})
+        flow_ratio = data.get("flow_ratio", 0.6)  # Calibrated from CSV congestion data
 
         # Apply interventions
         new_ev_share = ev_share
@@ -210,7 +220,7 @@ class TransportEngine(SimulationEngine):
 
         for e in modified_edges:
             eid = f"{e['u']}->{e['v']}"
-            base_flow = flow_map.get(eid, e["capacity"] * 0.6)
+            base_flow = flow_map.get(eid, e["capacity"] * flow_ratio)
             flow = base_flow * (1.0 - congestion_price_reduction)
             tt = _bpr_time(e["dist_km"], e["free_speed"], e["capacity"], flow)
             vkt = flow * e["dist_km"]

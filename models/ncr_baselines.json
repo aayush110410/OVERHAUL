@@ -1,0 +1,78 @@
+{
+  "Delhi": {
+    "aqi": {
+      "mean": 249.3,
+      "median": 245.5,
+      "min": 204,
+      "max": 342,
+      "pm25_mean": 164.1,
+      "pm10_mean": 347.4,
+      "records": 30
+    },
+    "traffic": {
+      "avg_speed_kmph": 40.4,
+      "congestion_pct_mean": 23.1,
+      "peak_congestion_pct": 37.6,
+      "offpeak_speed_kmph": 46.3,
+      "total_vehicles_mean": 14042.0,
+      "records": 336
+    }
+  },
+  "Noida": {
+    "aqi": {
+      "mean": 240.3,
+      "median": 235.0,
+      "min": 157,
+      "max": 295,
+      "pm25_mean": 136.9,
+      "pm10_mean": 283.4,
+      "records": 30
+    },
+    "traffic": {
+      "avg_speed_kmph": 41.0,
+      "congestion_pct_mean": 29.8,
+      "peak_congestion_pct": 43.4,
+      "offpeak_speed_kmph": 47.2,
+      "total_vehicles_mean": 11040.0,
+      "records": 1008
+    }
+  },
+  "Ghaziabad": {
+    "aqi": {
+      "mean": 259.5,
+      "median": 274.0,
+      "min": 206,
+      "max": 298,
+      "pm25_mean": 159.2,
+      "pm10_mean": 332.3,
+      "records": 30
+    },
+    "traffic": {
+      "avg_speed_kmph": 33.9,
+      "congestion_pct_mean": 30.5,
+      "peak_congestion_pct": 42.7,
+      "offpeak_speed_kmph": 38.8,
+      "total_vehicles_mean": 11790.0,
+      "records": 336
+    }
+  },
+  "Gurugram": {
+    "aqi": {
+      "mean": 252.7,
+      "median": 257.5,
+      "min": 149,
+      "max": 299,
+      "pm25_mean": 136.7,
+      "pm10_mean": 290.6,
+      "records": 30
+    },
+    "traffic": {
+      "avg_speed_kmph": 36.2,
+      "congestion_pct_mean": 29.9,
+      "peak_congestion_pct": 42.9,
+      "offpeak_speed_kmph": 41.8,
+      "total_vehicles_mean": 12006.0,
+      "records": 1008
+    }
+  }
+}

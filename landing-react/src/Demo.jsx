@@ -1,38 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import maplibregl from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
+
+const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN || '').trim()
+mapboxgl.accessToken = MAPBOX_TOKEN
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import ReactMarkdown from 'react-markdown'
 import './App.css'
 import { API_BASE } from './api/config'
 import ImagenOverlayControls from './components/ImagenOverlayControls'
+import ScenarioTemplates from './components/ScenarioTemplates'
+import EngineResults from './components/EngineResults'
+import ScenarioBuilder from './components/ScenarioBuilder'
+import ChatHistory from './components/ChatHistory'
+import ScenarioComparison from './components/ScenarioComparison'
+import TemporalTimeline from './components/TemporalTimeline'
+import LocationSearch from './components/LocationSearch'
 
-// Map style - CartoDB dark tiles (no API key required)
-function getMapStyle() {
-  return {
-    version: 8,
-    sources: {
-      'carto-dark': {
-        type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
-        ],
-        tileSize: 256,
-        maxzoom: 19,
-        attribution: '© OpenStreetMap contributors © CARTO'
-      }
-    },
-    layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': '#0b1220' } },
-      { id: 'carto-dark', type: 'raster', source: 'carto-dark' }
-    ]
-  }
-}
+// Map style - Mapbox Dark
+const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11'
 
 // Live demo basemap: CartoDB dark tiles (free, no API key required)
 
@@ -293,6 +282,16 @@ function Demo() {
   const mousePos = useRef({ x: 0, y: 0 })
   const rafId = useRef(null)
 
+  // Ensure body is scrollable (may be locked by home page mobile menu)
+  useEffect(() => {
+    document.body.style.overflow = ''
+    document.body.style.overflowY = ''
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.overflowY = ''
+    }
+  }, [])
+
   // Handle browser back/forward buttons
   useEffect(() => {
     window.history.pushState({ skipLoader: true }, '', window.location.href)
@@ -342,6 +341,19 @@ function Demo() {
   const [liveSources, setLiveSources] = useState([])
   const [manifest, setManifest] = useState(null)
   const [liveContext, setLiveContext] = useState({ sources: [] })
+
+  // New: Tab state for control panel
+  const [controlTab, setControlTab] = useState('chat') // 'chat' | 'scenarios' | 'builder' | 'compare' | 'temporal'
+  // New: Chat history for multi-turn
+  const [chatHistory, setChatHistory] = useState([])
+  // New: Engine domain results
+  const [engineDomains, setEngineDomains] = useState(null)
+  const [engineRecommendations, setEngineRecommendations] = useState([])
+  const [engineWarnings, setEngineWarnings] = useState([])
+  const [impactCards, setImpactCards] = useState([])
+  // Agent-based simulation
+  const [agentSimResult, setAgentSimResult] = useState(null)
+  const [agentSimRunning, setAgentSimRunning] = useState(false)
   
   // Map ref
   const mapContainer = useRef(null)
@@ -461,17 +473,16 @@ function Demo() {
       let cancelled = false
 
       ;(async () => {
-        const style = getMapStyle()
-        
         if (cancelled || mapRef.current) return
 
-        mapRef.current = new maplibregl.Map({
+        mapRef.current = new mapboxgl.Map({
           container: mapContainer.current,
-          style,
+          style: MAPBOX_STYLE,
           center: [77.31, 28.60],
           zoom: 12.8,
-          pitch: 50,
-          bearing: -15
+          pitch: 55,
+          bearing: -15,
+          antialias: true,
         })
         
         // Log map tile errors for debugging
@@ -483,10 +494,48 @@ function Demo() {
         // A resize on the next tick reliably fixes this.
         setTimeout(() => mapRef.current?.resize(), 0)
 
-        mapRef.current.addControl(new maplibregl.NavigationControl(), 'top-right')
+        mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
         mapRef.current.on('load', () => {
           if (!mapRef.current) return
+
+          // ── 3D Terrain ──
+          mapRef.current.addSource('mapbox-dem', {
+            type: 'raster-dem',
+            url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            tileSize: 512,
+            maxzoom: 14
+          })
+          mapRef.current.setTerrain({ source: 'mapbox-dem', exaggeration: 1.3 })
+
+          // ── 3D Buildings ──
+          const layers = mapRef.current.getStyle().layers
+          const labelLayerId = layers.find(l => l.type === 'symbol' && l.layout?.['text-field'])?.id
+          mapRef.current.addLayer({
+            id: '3d-buildings',
+            source: 'composite',
+            'source-layer': 'building',
+            filter: ['==', 'extrude', 'true'],
+            type: 'fill-extrusion',
+            minzoom: 12,
+            paint: {
+              'fill-extrusion-color': '#0f1923',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': ['get', 'min_height'],
+              'fill-extrusion-opacity': 0.7
+            }
+          }, labelLayerId)
+
+          // ── Sky atmosphere ──
+          mapRef.current.addLayer({
+            id: 'sky',
+            type: 'sky',
+            paint: {
+              'sky-type': 'atmosphere',
+              'sky-atmosphere-sun': [0.0, 0.0],
+              'sky-atmosphere-sun-intensity': 5
+            }
+          })
 
           // Add edges source for traffic visualization
           mapRef.current.addSource('edges', {
@@ -705,7 +754,7 @@ function Demo() {
             })
           }
           return bounds
-        }, new maplibregl.LngLatBounds())
+        }, new mapboxgl.LngLatBounds())
         
         if (!bounds.isEmpty()) {
           mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 14 })
@@ -1162,6 +1211,40 @@ function Demo() {
         setConfidenceLevel(data.outputs.confidenceLevel)
       }
 
+      // ── New: Populate engine domain results ──
+      if (data.outputs?.domains && Object.keys(data.outputs.domains).length > 0) {
+        setEngineDomains(data.outputs.domains)
+      }
+      if (data.outputs?.engineRecommendations) {
+        setEngineRecommendations(data.outputs.engineRecommendations)
+      }
+      if (data.outputs?.engineWarnings) {
+        setEngineWarnings(data.outputs.engineWarnings)
+      }
+      if (data.outputs?.impactCards) {
+        setImpactCards(data.outputs.impactCards)
+      }
+
+      // ── New: Append to chat history ──
+      const runtime = data.manifest?.runtime_s
+      const enginesRun = data.outputs?.brainInsights?.engines_run
+      const modelUsed = data.outputs?.brainInsights?.orchestrator
+      const fullResponse = data.outputs?.response || data.summary || 'Analysis complete.'
+      setChatHistory(prev => [
+        ...prev,
+        { role: 'user', content: prompt, timestamp: new Date().toLocaleTimeString() },
+        {
+          role: 'assistant',
+          content: fullResponse,
+          timestamp: new Date().toLocaleTimeString(),
+          stats: {
+            runtime: runtime ? runtime.toFixed(1) : null,
+            engines: enginesRun ? enginesRun.length : null,
+            model: modelUsed || null,
+          },
+        },
+      ])
+
       setAnalysisComplete(true)
 
     } catch (error) {
@@ -1172,6 +1255,98 @@ function Demo() {
     } finally {
       setIsAnalyzing(false)
       setSystemStatus('System Online')
+    }
+  }
+
+  // ── Handlers for new components ──
+
+  // Handle scenario template selection (fills prompt)
+  const handleSelectTemplate = (template) => {
+    setPrompt(template.description)
+    setControlTab('chat')
+  }
+
+  // Handle scenario template direct run
+  const handleRunTemplate = (result) => {
+    // Template results have { template, scenario, description, results }
+    if (result?.results) {
+      const formatted = result.results
+      // Extract domains from formatted results
+      if (formatted.domains) setEngineDomains(formatted.domains)
+      if (formatted.impactCards) setImpactCards(formatted.impactCards)
+      if (formatted.recommendations) setEngineRecommendations(formatted.recommendations)
+      if (formatted.warnings) setEngineWarnings(formatted.warnings)
+      // Set markdown response
+      setMarkdownResponse(formatted.summary || `## ${result.scenario}\n\n${result.description}\n\nTemplate simulation complete.`)
+
+      setChatHistory(prev => [
+        ...prev,
+        { role: 'user', content: `[Template: ${result.template}] ${result.description}`, timestamp: new Date().toLocaleTimeString() },
+        { role: 'assistant', content: formatted.summary || 'Template simulation complete.', timestamp: new Date().toLocaleTimeString() },
+      ])
+      setAnalysisComplete(true)
+    }
+  }
+
+  // Handle scenario builder run
+  const handleBuildScenario = async (scenario) => {
+    setPrompt(scenario.prompt)
+    setControlTab('chat')
+    // Auto-run analysis with the built prompt
+    setTimeout(() => {
+      // Trigger run with the built prompt
+      const el = document.querySelector('.demo-run-btn')
+      if (el) el.click()
+    }, 100)
+  }
+
+  // Handle chat follow-up
+  const handleSendFollowUp = (text) => {
+    setPrompt(text)
+    // Run analysis with the follow-up prompt
+    setTimeout(() => {
+      const el = document.querySelector('.demo-run-btn')
+      if (el) el.click()
+    }, 100)
+  }
+
+  // Agent-based simulation
+  const runAgentSim = async (interventions = []) => {
+    setAgentSimRunning(true)
+    setAgentSimResult(null)
+    try {
+      const resp = await fetchWithRetry(`${API_BASE}/simulate/agent-based`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: prompt || 'Agent-based urban simulation',
+          city: 'delhi',
+          interventions: interventions.length > 0 ? interventions : [
+            { name: 'congestion_pricing', domain: 'transport', parameters: { price_inr: 150, coverage_pct: 60 } }
+          ],
+          agent_count: 500,
+          timesteps: 5,
+        })
+      }, 2, 60000)
+      if (!resp.ok) throw new Error(await resp.text())
+      const data = await resp.json()
+      setAgentSimResult(data)
+      // Also feed into engine results
+      if (data.metrics) {
+        setEngineDomains(prev => ({
+          ...(prev || {}),
+          agent_simulation: data.metrics,
+        }))
+      }
+      if (data.recommendations?.length) {
+        setEngineRecommendations(prev => [...prev, ...data.recommendations])
+      }
+    } catch (err) {
+      console.error('Agent sim error:', err)
+      setErrorMessage('Agent simulation failed: ' + err.message)
+      setTimeout(() => setErrorMessage(''), 4000)
+    } finally {
+      setAgentSimRunning(false)
     }
   }
 
@@ -1358,9 +1533,19 @@ function Demo() {
                 <div className="demo-clock">{currentTime}</div>
               </div>
 
-              <a href="/" onClick={handleBackHome} className="demo-back-btn">
-                ← BACK TO HOME
-              </a>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <Link 
+                  to="/flyover" 
+                  state={{ skipLoader: false }}
+                  className="demo-back-btn"
+                  style={{ background: 'rgba(204, 255, 0, 0.1)', borderColor: 'rgba(204, 255, 0, 0.3)' }}
+                >
+                  🏗️ 3D FLYOVER
+                </Link>
+                <a href="/" onClick={handleBackHome} className="demo-back-btn">
+                  ← BACK TO HOME
+                </a>
+              </div>
             </nav>
 
             {/* Main Content */}
@@ -1408,6 +1593,12 @@ function Demo() {
                         <span className="demo-card-tag">REAL-TIME</span>
                       </div>
                     </div>
+                    {/* Location Search */}
+                    {mapReady && (
+                      <div className="ov-map-search-wrap">
+                        <LocationSearch map={mapRef.current} onLocationSelect={(loc) => console.log('Location:', loc)} />
+                      </div>
+                    )}
                     <div ref={mapContainer} className="demo-map" />
                   </motion.div>
 
@@ -1447,24 +1638,38 @@ function Demo() {
                     />
                   </div>
 
-                  {/* AI Analysis */}
-                  <motion.div 
-                    className="demo-card demo-ai-analysis"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5, duration: 0.6 }}
-                  >
-                    <div className="demo-card-header">
-                      <span className="demo-card-title">AI ANALYSIS</span>
-                    </div>
-                    <div className="demo-summary markdown-content">
-                      {markdownResponse ? (
-                        <ReactMarkdown>{markdownResponse}</ReactMarkdown>
-                      ) : (
-                        <p className="demo-placeholder">{summaryHtml}</p>
-                      )}
-                    </div>
-                  </motion.div>
+                  {/* Engine Domain Results */}
+                  {analysisComplete && (
+                    <motion.div
+                      className="demo-card"
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.55, duration: 0.6 }}
+                    >
+                      <EngineResults
+                        domains={engineDomains}
+                        recommendations={engineRecommendations}
+                        warnings={engineWarnings}
+                        impactCards={impactCards}
+                      />
+                    </motion.div>
+                  )}
+
+                  {/* Chat History */}
+                  {chatHistory.length > 0 && (
+                    <motion.div
+                      className="demo-card"
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.58, duration: 0.6 }}
+                    >
+                      <ChatHistory
+                        messages={chatHistory}
+                        onSendFollowUp={handleSendFollowUp}
+                        isAnalyzing={isAnalyzing}
+                      />
+                    </motion.div>
+                  )}
 
                   {/* Charts */}
                   <div className="demo-charts-grid">
@@ -1524,96 +1729,217 @@ function Demo() {
                       <span className="demo-panel-subtitle">Configure Traffic Scenario</span>
                     </div>
 
-                    {/* Prompt Input */}
-                    <div className="demo-input-group">
-                      <label className="demo-input-label">SCENARIO DESCRIPTION</label>
-                      <textarea
-                        className="demo-textarea"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="e.g., What if 50% of Noida vehicles were EVs? How would AQI change?"
-                        rows={4}
-                      />
+                    {/* Tab Navigation */}
+                    <div className="ov-panel-tabs">
+                      {[
+                        { id: 'chat', label: 'CHAT' },
+                        { id: 'agents', label: 'AGENTS' },
+                        { id: 'scenarios', label: 'TEMPLATES' },
+                        { id: 'builder', label: 'BUILDER' },
+                        { id: 'compare', label: 'COMPARE' },
+                        { id: 'temporal', label: 'TIMELINE' },
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          className={`ov-panel-tab ${controlTab === tab.id ? 'active' : ''}`}
+                          onClick={() => setControlTab(tab.id)}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
                     </div>
 
-                    {/* Analysis Mode Selection */}
-                    <div className="demo-input-group">
-                      <label className="demo-input-label">ANALYSIS MODE</label>
-                      <div className="demo-mode-buttons">
-                        <button 
-                          className={`demo-mode-btn ${mode === 'fast' ? 'active' : ''}`}
-                          onClick={() => setMode('fast')}
-                        >
-                          FAST
-                        </button>
-                        <button 
-                          className={`demo-mode-btn ${mode === 'deep' ? 'active' : ''}`}
-                          onClick={() => setMode('deep')}
-                        >
-                          DEEP
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Run Button */}
-                    <motion.button 
-                      className="demo-run-btn"
-                      onClick={runAnalysis}
-                      disabled={isAnalyzing}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      {isAnalyzing ? (
-                        <span className="demo-spinner" />
-                      ) : (
-                        'RUN ANALYSIS'
-                      )}
-                    </motion.button>
-
-                    {/* Progress Bar */}
-                    {isAnalyzing && (
-                      <motion.div 
-                        className="demo-progress-container"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                      >
-                        <div className="demo-progress-bar">
-                          <motion.div 
-                            className="demo-progress-fill"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${analysisProgress}%` }}
-                            transition={{ duration: 0.3 }}
+                    {/* Tab: Chat (original prompt-based analysis) */}
+                    {controlTab === 'chat' && (
+                      <>
+                        {/* Prompt Input */}
+                        <div className="demo-input-group">
+                          <label className="demo-input-label">SCENARIO DESCRIPTION</label>
+                          <textarea
+                            className="demo-textarea"
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            placeholder="e.g., What if 50% of Noida vehicles were EVs? How would AQI change?"
+                            rows={4}
                           />
                         </div>
-                        <div className="demo-progress-info">
-                          <span className="demo-progress-message">{progressMessage}</span>
-                          <span className="demo-progress-percent">{analysisProgress}%</span>
+
+                        {/* Analysis Mode Selection */}
+                        <div className="demo-input-group">
+                          <label className="demo-input-label">ANALYSIS MODE</label>
+                          <div className="demo-mode-buttons">
+                            <button 
+                              className={`demo-mode-btn ${mode === 'fast' ? 'active' : ''}`}
+                              onClick={() => setMode('fast')}
+                            >
+                              FAST
+                            </button>
+                            <button 
+                              className={`demo-mode-btn ${mode === 'deep' ? 'active' : ''}`}
+                              onClick={() => setMode('deep')}
+                            >
+                              DEEP
+                            </button>
+                          </div>
                         </div>
-                      </motion.div>
+
+                        {/* Run Button */}
+                        <motion.button 
+                          className="demo-run-btn"
+                          onClick={runAnalysis}
+                          disabled={isAnalyzing}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          {isAnalyzing ? (
+                            <span className="demo-spinner" />
+                          ) : (
+                            'RUN ANALYSIS'
+                          )}
+                        </motion.button>
+
+                        {/* Progress Bar */}
+                        {isAnalyzing && (
+                          <motion.div 
+                            className="demo-progress-container"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                          >
+                            <div className="demo-progress-bar">
+                              <motion.div 
+                                className="demo-progress-fill"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${analysisProgress}%` }}
+                                transition={{ duration: 0.3 }}
+                              />
+                            </div>
+                            <div className="demo-progress-info">
+                              <span className="demo-progress-message">{progressMessage}</span>
+                              <span className="demo-progress-percent">{analysisProgress}%</span>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {/* Error Message */}
+                        {errorMessage && (
+                          <motion.div 
+                            className="demo-error"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                          >
+                            {errorMessage}
+                          </motion.div>
+                        )}
+
+                        {/* Quick Actions */}
+                        <div className="demo-actions">
+                          <button className="demo-action-btn" onClick={exportReport}>
+                            📥 EXPORT REPORT
+                          </button>
+                        </div>
+
+                        {/* Keyboard Shortcut Hint */}
+                        <div className="demo-hint">
+                          Press <kbd>⌘</kbd> + <kbd>Enter</kbd> to run analysis
+                        </div>
+                      </>
                     )}
 
-                    {/* Error Message */}
-                    {errorMessage && (
-                      <motion.div 
-                        className="demo-error"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                      >
-                        {errorMessage}
-                      </motion.div>
+                    {/* Tab: Agent-Based Simulation */}
+                    {controlTab === 'agents' && (
+                      <div className="ov-agent-sim-panel">
+                        <div className="demo-card-title" style={{ marginBottom: 12 }}>SWARM INTELLIGENCE SIMULATION</div>
+                        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+                          Run multi-agent simulation with individual commuter and freight agents on the NCR road graph.
+                          Agents make independent route decisions, adapt to congestion, and share information within population segments.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                          {[
+                            { name: 'congestion_pricing', label: 'Congestion Pricing (₹150)', params: { price_inr: 150, coverage_pct: 60 } },
+                            { name: 'metro_expansion', label: 'Metro Expansion (+25 stations)', params: { new_stations: 25 } },
+                            { name: 'ev_fleet_expansion', label: 'EV Fleet Push (30%)', params: { ev_target_pct: 30 } },
+                            { name: 'bus_rapid_transit', label: 'Bus Rapid Transit', params: { car_capacity_reduction_pct: 15 } },
+                          ].map(intv => (
+                            <button
+                              key={intv.name}
+                              className="demo-mode-btn"
+                              disabled={agentSimRunning}
+                              onClick={() => runAgentSim([{ name: intv.name, domain: 'transport', parameters: intv.params }])}
+                              style={{ textAlign: 'left', padding: '10px 14px' }}
+                            >
+                              {agentSimRunning ? <span className="demo-spinner" /> : '▶'} {intv.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          className="demo-run-btn"
+                          disabled={agentSimRunning}
+                          onClick={() => runAgentSim([])}
+                          style={{ width: '100%', marginBottom: 16 }}
+                        >
+                          {agentSimRunning ? <><span className="demo-spinner" /> SIMULATING AGENTS...</> : 'RUN FULL AGENT SIMULATION →'}
+                        </button>
+
+                        {agentSimResult && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            style={{ background: 'rgba(204,255,0,0.05)', border: '1px solid rgba(204,255,0,0.15)', borderRadius: 8, padding: 14 }}
+                          >
+                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 10 }}>AGENT RESULTS</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                              {[
+                                { label: 'Avg Speed', value: `${agentSimResult.metrics?.avg_speed_kmh} km/h` },
+                                { label: 'Congestion', value: `${agentSimResult.metrics?.congestion_pct}%` },
+                                { label: 'Agents', value: `${agentSimResult.metrics?.agents_arrived}/${agentSimResult.metrics?.agents_simulated}` },
+                                { label: 'CO₂', value: `${agentSimResult.metrics?.co2_tonnes} t` },
+                                { label: 'PM2.5', value: `${agentSimResult.metrics?.pm25_kg} kg` },
+                                { label: 'EV Share', value: `${((agentSimResult.metrics?.ev_share || 0) * 100).toFixed(1)}%` },
+                                { label: 'Hotspots', value: agentSimResult.metrics?.hotspots_detected },
+                                { label: 'Mode Shifts', value: agentSimResult.metrics?.mode_shifts_observed },
+                              ].map(m => (
+                                <div key={m.label} style={{ padding: '6px 0' }}>
+                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>{m.label.toUpperCase()}</div>
+                                  <div style={{ fontSize: 16, color: '#ccff00', fontWeight: 700 }}>{m.value}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {agentSimResult.recommendations?.length > 0 && (
+                              <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 10 }}>
+                                {agentSimResult.recommendations.map((r, i) => (
+                                  <div key={i} style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>→ {r}</div>
+                                ))}
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </div>
                     )}
 
-                    {/* Quick Actions */}
-                    <div className="demo-actions">
-                      <button className="demo-action-btn" onClick={exportReport}>
-                        📥 EXPORT REPORT
-                      </button>
-                    </div>
+                    {/* Tab: Scenario Templates */}
+                    {controlTab === 'scenarios' && (
+                      <ScenarioTemplates
+                        onSelectTemplate={handleSelectTemplate}
+                        onRunTemplate={handleRunTemplate}
+                      />
+                    )}
 
-                    {/* Keyboard Shortcut Hint */}
-                    <div className="demo-hint">
-                      Press <kbd>⌘</kbd> + <kbd>Enter</kbd> to run analysis
-                    </div>
+                    {/* Tab: Scenario Builder */}
+                    {controlTab === 'builder' && (
+                      <ScenarioBuilder onBuildScenario={handleBuildScenario} />
+                    )}
+
+                    {/* Tab: Scenario Comparison */}
+                    {controlTab === 'compare' && (
+                      <ScenarioComparison onComparisonComplete={(data) => console.log('Comparison:', data)} />
+                    )}
+
+                    {/* Tab: Temporal Timeline */}
+                    {controlTab === 'temporal' && (
+                      <TemporalTimeline onTimelineComplete={(data) => console.log('Timeline:', data)} />
+                    )}
                   </motion.div>
                 </div>
               </div>
@@ -1622,7 +1948,7 @@ function Demo() {
             {/* Footer */}
             <footer className="demo-footer">
               <span>© 2025 OVERHAUL. ALL RIGHTS RESERVED.</span>
-              <span className="demo-footer-tag">TRAFFIC INTELLIGENCE PLATFORM</span>
+              <span className="demo-footer-tag">EARTH INTELLIGENCE PLATFORM</span>
             </footer>
           </motion.div>
         )}

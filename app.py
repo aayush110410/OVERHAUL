@@ -30,7 +30,7 @@ except Exception:
     pass
 
 from llm.config import load_llm_config, qwen_enabled, gemini_enabled, get_config_debug_info
-from llm.chat import llm_chat_text, llm_chat_json, qwen_chat_text, gemini_chat_text
+from llm.chat import llm_chat_text, llm_chat_json, qwen_chat_text, gemini_chat_text, display_usage
 from llm.geocoding import geocode as nominatim_geocode, reverse_geocode as nominatim_reverse_geocode
 from knowledge.index import query_knowledge
 from validation_store import (
@@ -923,6 +923,7 @@ class LDRagoController:
                 
                 outputs = {
                     "tldr": summary,
+                    "response": summary,  # Frontend reads this for ChatHistory
                     "confidenceLevel": "high",
                     "impactCards": impact_cards,
                     "domains": engine_domains,
@@ -2385,6 +2386,82 @@ async def simulate_endpoint(req: SimulateRequest):
     }
 
 
+class AgentSimRequest(BaseModel):
+    prompt: str = ""
+    city: str = "delhi"
+    interventions: List[Dict[str, Any]] = []
+    agent_count: int = 2000
+    timesteps: int = 10
+    time_horizon_days: int = 365
+
+
+@app.post("/simulate/agent-based")
+async def agent_based_simulation(req: AgentSimRequest):
+    """Run agent-based swarm simulation with emergent behavior.
+
+    Uses individual commuter and freight agents on the NCR road graph.
+    Agents make route decisions, adapt to congestion, and share information
+    within population segments (swarm intelligence).
+    """
+    if req.city.lower() not in _VALID_CITIES:
+        raise HTTPException(status_code=400, detail=f"Unsupported city. Use: {', '.join(_VALID_CITIES)}")
+
+    from engines.base import Intervention, Scenario
+    from engines.agent_simulation.engine import AgentSimulationEngine
+    from data_integration.bridge import (
+        ncr_data_to_engine_input,
+        build_scenario_from_prompt,
+    )
+    from agents.ncr_data_loader import get_ncr_summary
+
+    ncr = get_ncr_summary()
+    data = ncr_data_to_engine_input(ncr, city=req.city)
+    data["agent_count"] = req.agent_count
+    data["timesteps"] = req.timesteps
+
+    if req.interventions:
+        intv_objs = [
+            Intervention(
+                name=i["name"],
+                domain=i.get("domain", "transport"),
+                parameters=i.get("parameters", {}),
+                description=i.get("description", ""),
+            )
+            for i in req.interventions
+        ]
+        scenario = Scenario(
+            name=f"agent_sim_{req.city}",
+            description=req.prompt or "Agent-based simulation",
+            city=req.city,
+            interventions=intv_objs,
+            time_horizon_days=req.time_horizon_days,
+        )
+    else:
+        scenario = build_scenario_from_prompt(req.prompt, city=req.city)
+
+    engine = AgentSimulationEngine()
+    data = engine.estimate_missing(data)
+    result = await engine.simulate(scenario, data)
+
+    return {
+        "scenario": scenario.name,
+        "city": req.city,
+        "simulation_mode": "agent_based",
+        "agents_simulated": result.metrics.get("agents_simulated", 0),
+        "interventions": [
+            {"name": i.name, "domain": i.domain, "parameters": i.parameters}
+            for i in scenario.interventions
+        ],
+        "metrics": result.metrics,
+        "impacts": result.impacts,
+        "recommendations": result.recommendations,
+        "confidence": result.confidence,
+        "metadata": result.metadata,
+        "warnings": result.warnings,
+        "runtime_seconds": result.runtime_seconds,
+    }
+
+
 class CompareRequest(BaseModel):
     scenarios: List[Dict[str, Any]]
     city: str = "delhi"
@@ -2439,10 +2516,23 @@ async def list_scenario_templates():
 @app.post("/scenarios/templates/{template_id}")
 async def run_template(template_id: str):
     """Run a pre-built scenario template through all relevant engines."""
+    import math
     from engines.scenarios import build_scenario_from_template
     from engines import get_registry
     from data_integration.bridge import ncr_data_to_engine_input, format_engine_results_for_chat
     from agents.ncr_data_loader import get_ncr_summary
+
+    def _sanitize(obj):
+        """Replace inf/nan floats with JSON-safe values."""
+        if isinstance(obj, float):
+            if math.isinf(obj) or math.isnan(obj):
+                return None
+            return obj
+        if isinstance(obj, dict):
+            return {k: _sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_sanitize(v) for v in obj]
+        return obj
 
     try:
         scenario = build_scenario_from_template(template_id)
@@ -2454,12 +2544,12 @@ async def run_template(template_id: str):
     data = ncr_data_to_engine_input(ncr, city=scenario.city)
     results = await registry.run_scenario(scenario, data)
 
-    return {
+    return _sanitize({
         "template": template_id,
         "scenario": scenario.name,
         "description": scenario.description,
         "results": format_engine_results_for_chat(results, scenario.name),
-    }
+    })
 
 
 @app.get("/live/aqi")
@@ -2688,8 +2778,10 @@ async def chat_v2_endpoint(req: ChatV2Request):
     """LDRAGO v2 cognitive pipeline — 6-agent reasoning chain.
 
     Modes:
-      - full:  Parse→Plan→Research+Engines→Reason+Critique→Synthesize (~8-12s)
-      - fast:  Parse→Plan→Research+Engines→Reason→Synthesize (~5-8s)
+      - full:  Parse→Locate→Plan→Research+Engines→Reason+Critique→Synthesize→Viz (~8-12s)
+      - fast:  Parse→Locate→Plan→Research+Engines→Reason→Synthesize→Viz (~5-8s)
+
+    Response includes viz_data for globe rendering (GeoJSON, nodes, edges, heatmap).
     """
     v2 = _get_ldrago_v2()
     try:
@@ -2717,6 +2809,9 @@ async def chat_v2_endpoint(req: ChatV2Request):
                     "duration_seconds": result.get("duration_seconds", 0),
                 },
             },
+            "viz_data": result.get("viz_data", {}),
+            "locations": result.get("locations", []),
+            "parsed_intent": result.get("parsed_intent", {}),
             "manifest": {
                 "run_id": str(uuid.uuid4()),
                 "mode": result.get("pipeline", "ldrago_v2"),
@@ -2732,38 +2827,37 @@ async def chat_v2_endpoint(req: ChatV2Request):
 
 @app.post("/simulate/temporal")
 async def simulate_temporal(req: TemporalSimRequest):
-    """Multi-step temporal simulation with cross-engine feedback loops.
+    """Multi-step temporal simulation with LDRAGO v2 orchestration.
 
-    Runs the simulation forward in time steps (default: 4 steps × 90 days),
-    applying S-curve implementation progress scaling and cross-engine
-    feedback (Transport→Environment→Economic→Population→Transport).
+    Uses LDRAGO v2 pipeline: Parse → Locate → Plan → Temporal Engines
+    Returns timeline steps with visualization data (GeoJSON, nodes, edges).
     """
     try:
-        from engines import get_registry
-        from data_integration.bridge import build_scenario_from_prompt, ncr_data_to_engine_input
-
-        registry = get_registry()
-        scenario = build_scenario_from_prompt(req.prompt, req.city)
-        data = ncr_data_to_engine_input({})  # defaults
-
-        result = await registry.run_temporal(
-            scenario=scenario,
-            data=data,
+        v2 = _get_ldrago_v2()
+        result = await v2.run_temporal(
+            query=req.prompt,
+            city=req.city,
             steps=req.steps,
             step_days=req.step_days,
         )
+
         return {
             "status": "ok",
             "city": req.city,
             "prompt": req.prompt,
-            "timeline_days": result.get("timeline_days"),
-            "steps": result.get("steps", []),
-            "trends": result.get("trend", {}),
+            "timeline_days": result.get("temporal_result", {}).get("timeline_days"),
+            "steps": result.get("temporal_result", {}).get("steps", []),
+            "trends": result.get("temporal_result", {}).get("trends", {}),
+            "viz_data": result.get("viz_data", {}),
+            "locations": result.get("locations", []),
+            "parsed_intent": result.get("parsed_intent", {}),
+            "agent_trace": result.get("agent_trace", []),
             "manifest": {
                 "run_id": str(uuid.uuid4()),
-                "mode": "temporal_simulation",
+                "mode": "ldrago_v2_temporal",
                 "step_count": req.steps,
                 "step_days": req.step_days,
+                "runtime_s": result.get("duration_seconds", 0),
             },
         }
     except Exception as e:
@@ -2775,6 +2869,62 @@ async def schema_info(domain: Optional[str] = None):
     """Return canonical schema documentation for data integration."""
     from data_integration.schema import get_schema_info
     return get_schema_info(domain)
+
+
+@app.get("/ldrago/status")
+async def ldrago_status():
+    """LDRAGO v2 system status — available agents, engines, and models."""
+    from llm.config import qwen_enabled, gemini_enabled, get_config_debug_info
+
+    engines_info = []
+    try:
+        from engines import get_registry
+        registry = get_registry()
+        engines_info = registry.list_engines()
+    except Exception as e:
+        engines_info = [{"error": str(e)}]
+
+    return {
+        "pipeline": "ldrago_v2",
+        "agents": [
+            {"role": "parser", "model": "qwen/qwen3-4b:free", "status": "active" if qwen_enabled() else "fallback"},
+            {"role": "location_resolver", "model": "nominatim/ncr_landmarks", "status": "active"},
+            {"role": "planner", "model": "heuristic", "status": "active"},
+            {"role": "researcher", "model": "data_apis", "status": "active"},
+            {"role": "reasoner", "model": "meta-llama/llama-3.3-70b-instruct:free", "status": "active" if qwen_enabled() else "unavailable"},
+            {"role": "critic", "model": "openai/gpt-oss-120b:free", "status": "active" if qwen_enabled() else "unavailable"},
+            {"role": "synthesizer", "model": "gemini-3.1-pro-preview", "status": "active" if gemini_enabled() else "fallback"},
+            {"role": "viz_output", "model": "geospatial-generator", "status": "active"},
+        ],
+        "engines": engines_info,
+        "modes": ["full", "fast", "temporal"],
+        "endpoints": ["/chat/v2", "/simulate/temporal", "/ldrago/status"],
+        "config": get_config_debug_info(),
+    }
+
+
+@app.get("/usage/stats")
+async def usage_stats():
+    """Get current LLM token usage statistics."""
+    from llm.usage_tracker import get_usage_tracker
+    stats = get_usage_tracker().get_stats()
+
+    return {
+        "status": "ok",
+        "usage": {
+            "total_input_tokens": stats.total_input_tokens,
+            "total_output_tokens": stats.total_output_tokens,
+            "total_tokens": stats.total_tokens,
+            "total_calls": stats.total_calls,
+            "estimated_cost": round(stats.total_cost, 6),
+            "models_used": stats.model_usage,
+            "usage_percentage": round(stats.get_usage_percentage(1000000), 2)  # Assuming 1M token limit
+        },
+        "limits": {
+            "daily_token_limit": 1000000,
+            "warning_threshold": 800000
+        }
+    }
 
 
 def _extract_v2_impact_cards(result: dict) -> list:

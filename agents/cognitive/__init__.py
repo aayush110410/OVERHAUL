@@ -2,11 +2,13 @@
 
 Multi-agent reasoning architecture with specialized cognitive roles:
   - Parser     : Interprets user intent, extracts entities
+  - Location   : Resolves geographic mentions to coordinates
   - Planner    : Decomposes questions into simulation tasks
   - Researcher : Gathers data and context
   - Reasoner   : Deep analysis and causal inference
   - Critic     : Validates, challenges, finds inconsistencies
   - Synthesizer: Merges all outputs into coherent insight
+  - Viz Output : Converts results to globe-ready GeoJSON
 
 Each agent is a stateless async function that takes context and
 returns structured output. The Orchestrator coordinates them.

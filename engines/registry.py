@@ -448,6 +448,13 @@ def get_registry() -> EngineRegistry:
     except Exception as e:
         print(f"[EngineRegistry] ⚠ LogisticsEngine: {e}")
 
+    # Agent-based simulation engine (swarm intelligence)
+    try:
+        from engines.agent_simulation.engine import AgentSimulationEngine
+        _REGISTRY.register(AgentSimulationEngine())
+    except Exception as e:
+        print(f"[EngineRegistry] ⚠ AgentSimulationEngine: {e}")
+
     loaded = list(_REGISTRY._engines.keys())
     print(f"[EngineRegistry] ✓ Loaded {len(loaded)} engines: {loaded}")
     return _REGISTRY
