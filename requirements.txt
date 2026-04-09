@@ -19,7 +19,7 @@ scikit-learn>=1.4.0
 xgboost>=2.1.0
 google-generativeai>=0.8.0
 matplotlib>=3.9.0
-pytest>=8.3.1
+pytest>=8.2.0
 pytest-asyncio>=0.23.7
 sumolib>=1.19.0
 traci>=1.19.0
@@ -32,8 +32,8 @@ gym==0.26.2
 tensorboard
 structlog
 # Agent-based simulation (swarm intelligence layer)
-camel-ai==0.2.78
-camel-oasis==0.2.5
+camel-ai>=0.2.0
+camel-oasis>=0.2.0
 zep-cloud==3.13.0
 flake8
 mypy
